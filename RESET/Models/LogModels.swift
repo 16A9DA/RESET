@@ -201,3 +201,35 @@ struct PlannedExercise: Codable, Hashable {
     var restSec: Int
     var modification: String?
 }
+
+/// Something bought, waiting for the user to say whether they ate it. Never counted in food totals.
+/// Holds item text only. No prices, totals, merchants' addresses or card details are stored.
+@Model
+final class PurchaseDraft {
+    @Attribute(.unique) var id: UUID
+    var createdAt: Date
+    var text: String
+    var categoryRaw: String
+    var sourceRaw: String
+    /// pending, ate, dismissed. Handled drafts are kept briefly so a repeat paste does not re-ask.
+    var statusRaw: String
+    /// Items read from a receipt photo, already marked not consumed.
+    var items: [FoodItem]
+
+    init(text: String, category: PurchaseCategory, source: String, items: [FoodItem] = []) {
+        id = UUID(); createdAt = .now; self.text = text; categoryRaw = category.rawValue
+        sourceRaw = source; statusRaw = "pending"; self.items = items
+    }
+
+    var category: PurchaseCategory { PurchaseCategory(rawValue: categoryRaw) ?? .unknown }
+    var pending: Bool { statusRaw == "pending" }
+}
+
+@Model
+final class PurchaseRuleRecord {
+    @Attribute(.unique) var id: UUID
+    var keyword: String
+    var prefill: String
+    init(keyword: String, prefill: String) { id = UUID(); self.keyword = keyword; self.prefill = prefill }
+    var rule: PurchaseRule { PurchaseRule(keyword: keyword, prefill: prefill) }
+}

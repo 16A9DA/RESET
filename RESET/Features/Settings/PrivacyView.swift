@@ -72,6 +72,7 @@ struct PrivacyView: View {
             case .food:
                 try context.delete(model: MealRecord.self); try context.delete(model: SavedMeal.self)
                 try context.delete(model: WaterRecord.self); try context.delete(model: CaffeineRecord.self); try context.delete(model: SavedDrink.self)
+                try context.delete(model: PurchaseDraft.self)
             case .chat:
                 try context.delete(model: ChatMessage.self)
             case .everything:

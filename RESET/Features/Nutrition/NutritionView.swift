@@ -48,6 +48,7 @@ struct NutritionView: View {
             .navigationTitle("Nutrition")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { NavigationLink { RemindersSettingsView() } label: { Image(systemName: "bell") }.accessibilityLabel("Reminders") }
+                ToolbarItem(placement: .topBarLeading) { NavigationLink { PurchasesView() } label: { Image(systemName: "bag") }.accessibilityLabel("Purchases") }
                 ToolbarItem(placement: .topBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Log food") }
             }
             .sheet(isPresented: $adding) { AddFoodView() }

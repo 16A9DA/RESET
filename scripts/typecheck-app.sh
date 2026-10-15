@@ -58,6 +58,8 @@ extension ChatMessage: Identifiable {}
 extension WeightRecord: Identifiable {}
 extension LocationEvent: Identifiable {}
 extension UserProfile: Identifiable {}
+extension PurchaseDraft: Identifiable {}
+extension PurchaseRuleRecord: Identifiable {}
 SW
 if [ -n "$PROBE" ]; then
   echo 'let probeError: Int = "not an int"' >> "$WORK/src/RESET/Features/Shared/Theme.swift"

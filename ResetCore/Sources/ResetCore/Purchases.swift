@@ -11,6 +11,7 @@ public enum PurchaseCategory: String, Codable, Sendable {
 public struct PurchaseCandidate: Equatable, Sendable {
     public var text: String
     public var category: PurchaseCategory
+    public init(text: String, category: PurchaseCategory) { self.text = text; self.category = category }
 }
 
 public struct PurchaseRule: Codable, Equatable, Sendable {
