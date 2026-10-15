@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.reset.ai.refresh</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RE:SET uses your location to save places such as work and university, and to show them on the map.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Background location lets RE:SET notice when you arrive at or leave work or university so it can suggest time entries. iOS may delay these events, so you can always correct times manually.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>RE:SET can save walks you record in the app to Apple Health.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>RE:SET reads step counts from your iPhone when Apple Health access is not granted.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The camera is used to photograph meals and scan food barcodes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a meal photo to estimate its nutrition.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Not used for recording. Voice input uses the iOS keyboard dictation.</string>
+</dict>
+</plist>
