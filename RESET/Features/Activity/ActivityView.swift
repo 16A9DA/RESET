@@ -17,6 +17,7 @@ struct ActivityView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
+                    RecoveryCard()
                     if !health.authRequested { healthCard }
                     stepsCard
                     WalkCard()
