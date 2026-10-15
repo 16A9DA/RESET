@@ -19,6 +19,7 @@ struct NutritionView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     summary
+                    WaterCard()
                     CaffeineCard { logDrink = true }
                     Card(title: "Today") {
                         if today.isEmpty {
@@ -44,7 +45,10 @@ struct NutritionView: View {
             }
             .background(Theme.background)
             .navigationTitle("Nutrition")
-            .toolbar { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Log food") }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { NavigationLink { RemindersSettingsView() } label: { Image(systemName: "bell") }.accessibilityLabel("Reminders") }
+                ToolbarItem(placement: .topBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Log food") }
+            }
             .sheet(isPresented: $adding) { AddFoodView() }
             .sheet(isPresented: $logDrink) { LogDrinkView() }
             .sheet(item: $editing) { MealEditor(meal: $0) }
