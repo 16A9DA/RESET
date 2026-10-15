@@ -2,12 +2,13 @@ import SwiftUI
 
 struct AISettingsView: View {
     @Bindable var profile: UserProfile
-    @State private var anthropic = Keychain.get(Keychain.anthropicKey) ?? ""
-    @State private var openAI = Keychain.get(Keychain.openAIKey) ?? ""
-    @State private var proxyToken = Keychain.get(Keychain.proxyToken) ?? ""
+    @State private var keys: [AIConfig.Kind: String] = [:]
+    @State private var models: [AIConfig.Kind: String] = [:]
     @State private var usda = Keychain.get(Keychain.usdaKey) ?? ""
-    @State private var openAIBase = UserDefaults.standard.string(forKey: AIConfig.openAIBaseKey) ?? "https://api.x.ai/v1"
+    @State private var customBase = UserDefaults.standard.string(forKey: AIConfig.customBaseKey) ?? "https://api.x.ai/v1"
     @State private var proxyBase = UserDefaults.standard.string(forKey: AIConfig.proxyBaseKey) ?? ""
+    @State private var testing = false
+    @State private var testResult: (ok: Bool, message: String)?
 
     private var kind: AIConfig.Kind { AIConfig.Kind(rawValue: profile.aiProviderRaw) ?? .anthropic }
 
@@ -15,27 +16,58 @@ struct AISettingsView: View {
         Form {
             Section {
                 Picker("Provider", selection: $profile.aiProviderRaw) {
-                    ForEach(AIConfig.Kind.allCases) { Text($0.title).tag($0.rawValue) }
+                    ForEach(AIConfig.Kind.allCases) { k in
+                        Text(k.title).tag(k.rawValue)
+                    }
                 }
-                if kind != .proxy { TextField("Model", text: $profile.aiModel).textInputAutocapitalization(.never).autocorrectionDisabled() }
+                .pickerStyle(.inline)
+                .labelsHidden()
+                ForEach(AIConfig.Kind.allCases) { k in
+                    HStack {
+                        Text(k.title).font(.footnote)
+                        Spacer()
+                        Text(AIConfig.hasCredentials(k) ? "Key saved" : "No key").font(.caption)
+                            .foregroundStyle(AIConfig.hasCredentials(k) ? Theme.good : Theme.secondaryText)
+                    }
+                }
+            } header: {
+                Text("Choose a provider")
+            } footer: {
+                Text("Only the selected provider is used. Each keeps its own key and model, so you can switch at any time.")
+            }
+
+            Section {
                 switch kind {
                 case .anthropic:
-                    SecureField("Anthropic API key", text: $anthropic).onSubmit { Keychain.set(anthropic, for: Keychain.anthropicKey) }
+                    keyField("Anthropic API key", .anthropic)
+                    modelField("Model", .anthropic, placeholder: AIConfig.Kind.anthropic.defaultModel)
                 case .openai:
-                    TextField("Base URL (https)", text: $openAIBase).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    SecureField("API key", text: $openAI).onSubmit { Keychain.set(openAI, for: Keychain.openAIKey) }
-                    Text("This adapter follows the Chat Completions format and has not been tested against a live account. Check your provider's docs for the right base URL and a vision model.")
+                    keyField("OpenAI API key", .openai)
+                    modelField("Model", .openai, placeholder: "A vision capable model from your account")
+                    Text("Enter a model name that supports images and tools, as listed in your OpenAI account. The app does not guess one. Some reasoning models reject tool calls; if Test connection or the coach fails, try a non-reasoning model.")
+                        .font(.caption).foregroundStyle(Theme.secondaryText)
+                case .custom:
+                    TextField("Base URL (https)", text: $customBase).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                    keyField("API key", .custom)
+                    modelField("Model", .custom, placeholder: "Model name from your provider")
+                    Text("For services that copy the OpenAI Chat Completions format. Check your provider's docs for the base URL and a vision model. xAI documents a /v1/responses API that this option does not use.")
                         .font(.caption).foregroundStyle(Theme.secondaryText)
                 case .proxy:
-                    TextField("Proxy URL", text: $proxyBase).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    SecureField("Proxy token", text: $proxyToken).onSubmit { Keychain.set(proxyToken, for: Keychain.proxyToken) }
+                    TextField("Proxy URL", text: $proxyBase).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                    keyField("Proxy token", .proxy)
+                    Text("The proxy holds the provider key and chooses the model on the server. See backend/README in the repository.")
+                        .font(.caption).foregroundStyle(Theme.secondaryText)
                 }
-                Button("Save credentials", action: save)
+                Button(testing ? "Testing" : "Save and test connection") { Task { await saveAndTest() } }.disabled(testing)
+                if let t = testResult {
+                    Text(t.message).font(.footnote).foregroundStyle(t.ok ? Theme.good : Theme.low)
+                }
             } header: {
-                Text("AI service")
+                Text(kind.title)
             } footer: {
-                Text("Keys are stored in the iOS Keychain on this device only. For anything beyond personal use, run the included backend proxy so the provider key never sits on the phone. Descriptions and meal photos you analyze are sent to the provider. Location and history are not.")
+                Text("Keys are stored in the iOS Keychain on this device only, never in the app's files or source. A test sends one short message and uses a tiny amount of credit. Descriptions and meal photos you analyze are sent to the selected provider. Location and history are not.")
             }
+
             Section {
                 SecureField("USDA FoodData Central key", text: $usda).onSubmit { save() }
             } header: {
@@ -50,16 +82,46 @@ struct AISettingsView: View {
             }
         }
         .navigationTitle("AI and data sources")
+        .onAppear(perform: load)
         .onDisappear(perform: save)
+        .onChange(of: profile.aiProviderRaw) { _, _ in testResult = nil }
+    }
+
+    private func keyField(_ title: String, _ k: AIConfig.Kind) -> some View {
+        SecureField(title, text: Binding(get: { keys[k] ?? "" }, set: { keys[k] = $0 }))
+            .textInputAutocapitalization(.never).autocorrectionDisabled()
+    }
+
+    private func modelField(_ title: String, _ k: AIConfig.Kind, placeholder: String) -> some View {
+        TextField(placeholder, text: Binding(get: { models[k] ?? "" }, set: { models[k] = $0 }))
+            .textInputAutocapitalization(.never).autocorrectionDisabled()
+    }
+
+    private func load() {
+        for k in AIConfig.Kind.allCases {
+            if let key = k.keychainKey { keys[k] = Keychain.get(key) ?? "" }
+            models[k] = AIConfig.model(for: k, profile: profile)
+        }
     }
 
     private func save() {
-        Keychain.set(anthropic, for: Keychain.anthropicKey)
-        Keychain.set(openAI, for: Keychain.openAIKey)
-        Keychain.set(proxyToken, for: Keychain.proxyToken)
-        Keychain.set(usda, for: Keychain.usdaKey)
+        for k in AIConfig.Kind.allCases {
+            if let key = k.keychainKey, let v = keys[k] { Keychain.set(v.trimmingCharacters(in: .whitespacesAndNewlines), for: key) }
+            if k != .proxy, let m = models[k] { AIConfig.setModel(m, for: k) }
+        }
+        Keychain.set(usda.trimmingCharacters(in: .whitespacesAndNewlines), for: Keychain.usdaKey)
         let d = UserDefaults.standard
-        d.set(openAIBase.trimmingCharacters(in: .whitespaces), forKey: AIConfig.openAIBaseKey)
+        d.set(customBase.trimmingCharacters(in: .whitespaces), forKey: AIConfig.customBaseKey)
         d.set(proxyBase.trimmingCharacters(in: .whitespaces), forKey: AIConfig.proxyBaseKey)
+    }
+
+    private func saveAndTest() async {
+        save()
+        testing = true; defer { testing = false }
+        guard let p = AIConfig.provider(kind: kind.rawValue, profile: profile) else {
+            testResult = (false, "Not fully set up yet. Check the key, model and URL fields.")
+            return
+        }
+        testResult = await AIConfig.test(p)
     }
 }

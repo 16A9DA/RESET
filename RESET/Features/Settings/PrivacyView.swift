@@ -76,9 +76,10 @@ struct PrivacyView: View {
                 try context.delete(model: ChatMessage.self)
             case .everything:
                 try Store.resetAll(context)
-                [Keychain.usdaKey, Keychain.anthropicKey, Keychain.openAIKey, Keychain.proxyToken].forEach { Keychain.set(nil, for: $0) }
+                [Keychain.usdaKey, Keychain.anthropicKey, Keychain.openAIKey, Keychain.customKey, Keychain.proxyToken].forEach { Keychain.set(nil, for: $0) }
                 let d = UserDefaults.standard
-                ["walk.start", "health.authRequested", AIConfig.openAIBaseKey, AIConfig.proxyBaseKey, "appearance"].forEach { d.removeObject(forKey: $0) }
+                (["walk.start", "health.authRequested", AIConfig.customBaseKey, AIConfig.proxyBaseKey, "appearance"]
+                    + AIConfig.Kind.allCases.map { "ai.model.\($0.rawValue)" }).forEach { d.removeObject(forKey: $0) }
                 UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
                 try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent("reset-export"))
             }

@@ -71,3 +71,25 @@ private func bodyJSON(_ c: Capture) throws -> [String: Any] {
     let a = try await FoodAnalyzer.finish(#"{"items":[{"name":"Rice","grams":200,"confidence":"high","estimate":{"kcal":260}}],"uncertainties":["oil amount unknown"]}"#, lookup: nil)
     #expect(!a.canAutoSave)
 }
+
+@Test func openAIPresetUsesMaxCompletionTokensAndNotMaxTokens() async throws {
+    let http = Capture(#"{"choices":[{"message":{"content":"ok"}}]}"#)
+    let p = OpenAICompatibleProvider.openAI(apiKey: "k", model: "some-model", http: http)
+    _ = try await p.complete(AIRequest(system: "s", messages: [.user("hi")], maxTokens: 1500))
+    let b = try bodyJSON(http)
+    #expect(http.last?.url?.absoluteString == "https://api.openai.com/v1/chat/completions")
+    #expect(b["max_completion_tokens"] as? Int == 4000 && b["max_tokens"] == nil && b["model"] as? String == "some-model")
+}
+
+@Test func compatiblePresetKeepsMaxTokens() async throws {
+    let http = Capture(#"{"choices":[{"message":{"content":"ok"}}]}"#)
+    let p = OpenAICompatibleProvider(apiKey: "k", model: "m", baseURL: URL(string: "https://example.test/v1")!, http: http)
+    _ = try await p.complete(AIRequest(system: "s", messages: [.user("hi")], maxTokens: 700))
+    let b = try bodyJSON(http)
+    #expect(b["max_tokens"] as? Int == 700 && b["max_completion_tokens"] == nil)
+}
+
+@Test func openAIWithoutModelIsMissingCredentialsNotAGuess() async {
+    let p = OpenAICompatibleProvider.openAI(apiKey: "k", model: "", http: Capture("{}"))
+    await #expect(throws: AIError.missingCredentials) { try await p.complete(AIRequest(system: "", messages: [])) }
+}

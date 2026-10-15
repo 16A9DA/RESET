@@ -29,5 +29,6 @@ enum Keychain {
     static let usdaKey = "usda.apikey"
     static let anthropicKey = "anthropic.apikey"
     static let openAIKey = "openai.apikey"
+    static let customKey = "custom.apikey"
     static let proxyToken = "proxy.token"
 }

@@ -199,33 +199,49 @@ public struct AnthropicProvider: AIProvider {
     }
 }
 
-// MARK: OpenAI-compatible Chat Completions (OpenAI, xAI and similar)
+// MARK: OpenAI Chat Completions (OpenAI itself and compatible services)
 
 /// POST {base}/chat/completions with a bearer token. Images go in as image_url data URLs and tools as functions.
-/// NOT verified against a live account in this project. xAI documents a different /v1/responses API on its main
-/// reference page, so check your provider's docs and base URL before relying on this adapter.
+/// OpenAI deprecated `max_tokens`; its newer and reasoning models require `max_completion_tokens`, which also counts
+/// hidden reasoning tokens. Compatible services such as xAI often still expect `max_tokens`, so the name is configurable.
+/// Request and response shapes are covered by unit tests with a stub client. They have NOT been run against a live
+/// OpenAI or xAI account, so verify with your own key. Reasoning models may also reject function tools unless
+/// reasoning effort is lowered (reported in Azure's docs, unverified against OpenAI's). Pick a non reasoning vision model if tool calls fail.
 public struct OpenAICompatibleProvider: AIProvider {
     let http: HTTPClient
     let apiKey: String
     let model: String
     let baseURL: URL
+    let tokenParameter: String
+    let minTokens: Int
 
-    public init(apiKey: String, model: String, baseURL: URL, http: HTTPClient = URLSessionClient()) {
-        self.apiKey = apiKey; self.model = model; self.baseURL = baseURL; self.http = http
+    public static let openAIBaseURL = URL(string: "https://api.openai.com/v1")!
+
+    /// `tokenParameter` is "max_completion_tokens" for OpenAI, "max_tokens" for most compatible services.
+    /// `minTokens` leaves room for hidden reasoning tokens so structured replies are not cut off.
+    public init(apiKey: String, model: String, baseURL: URL, tokenParameter: String = "max_tokens", minTokens: Int = 0,
+                http: HTTPClient = URLSessionClient()) {
+        self.apiKey = apiKey; self.model = model; self.baseURL = baseURL; self.tokenParameter = tokenParameter
+        self.minTokens = minTokens; self.http = http
+    }
+
+    public static func openAI(apiKey: String, model: String, http: HTTPClient = URLSessionClient()) -> OpenAICompatibleProvider {
+        OpenAICompatibleProvider(apiKey: apiKey, model: model, baseURL: openAIBaseURL, tokenParameter: "max_completion_tokens",
+                                 minTokens: 4000, http: http)
     }
 
     public func complete(_ r: AIRequest) async throws -> AIResponse {
-        guard !apiKey.isEmpty else { throw AIError.missingCredentials }
+        guard !apiKey.isEmpty, !model.isEmpty else { throw AIError.missingCredentials }
         var req = URLRequest(url: baseURL.appendingPathComponent("chat/completions"))
         req.httpMethod = "POST"
         req.timeoutInterval = 60
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: try Self.body(r, model: model))
+        req.httpBody = try JSONSerialization.data(withJSONObject: try Self.body(r, model: model, tokenParameter: tokenParameter, minTokens: minTokens))
         return try Self.parse(try await http.send(req))
     }
 
-    static func body(_ r: AIRequest, model: String) throws -> [String: Any] {
+    static func body(_ r: AIRequest, model: String, tokenParameter: String = "max_tokens", minTokens: Int = 0) throws -> [String: Any] {
         func enc(_ v: JSONValue) throws -> Any { try JSONSerialization.jsonObject(with: JSONEncoder().encode(v), options: .fragmentsAllowed) }
         var messages: [[String: Any]] = [["role": "system", "content": r.system]]
         for m in r.messages {
@@ -250,7 +266,7 @@ public struct OpenAICompatibleProvider: AIProvider {
                 messages.append(msg)
             }
         }
-        var body: [String: Any] = ["model": model, "messages": messages, "max_tokens": r.maxTokens]
+        var body: [String: Any] = ["model": model, "messages": messages, tokenParameter: max(r.maxTokens, minTokens)]
         if !r.tools.isEmpty {
             body["tools"] = try r.tools.map {
                 ["type": "function", "function": ["name": $0.name, "description": $0.description, "parameters": try enc($0.schema)]] as [String: Any]
