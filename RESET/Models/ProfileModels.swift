@@ -1,0 +1,149 @@
+import Foundation
+import SwiftData
+import ResetCore
+
+@Model
+final class UserProfile {
+    @Attribute(.unique) var id: UUID
+    var createdAt: Date
+    var onboardingDone: Bool
+
+    var age: Int?
+    var sex: Sex?
+    var heightCm: Double
+    var weightKg: Double
+    var targetWeightKg: Double?
+    var goal: Goal
+    var activityLevel: ActivityLevel
+    var units: UnitSystem
+
+    /// Minutes after midnight.
+    var wakeMinute: Int
+    var bedMinute: Int
+    var workStartMinute: Int?
+    var workEndMinute: Int?
+    var uniStartMinute: Int?
+    var uniEndMinute: Int?
+    /// Calendar weekday numbers, 1 = Sunday.
+    var workDays: [Int]
+    var uniDays: [Int]
+    var gymDaysPerWeek: Int
+    var equipment: Equipment
+
+    var dietaryPreferences: [String]
+    var allergies: [String]
+    var caffeineHabit: String
+
+    var calorieCountingEnabled: Bool
+    var maintenanceOverrideKcal: Double?
+    var deficitPercent: Double
+    var proteinPerKg: Double
+    var waterGoalMl: Double?
+    var fluidRestriction: Bool
+    var quickWaterMl: [Int]
+    var sleepTargetHours: Double
+    var windDownMinutes: Int
+    var mealPattern: [MealType]
+    var autoSaveFood: Bool
+    var keepConversationHistory: Bool
+    var aiProviderRaw: String
+    var aiModel: String
+
+    init() {
+        id = UUID(); createdAt = .now; onboardingDone = false
+        heightCm = 188; weightKg = 103
+        goal = .fatLossKeepMuscle; activityLevel = .moderate; units = .metric
+        wakeMinute = 7 * 60; bedMinute = 23 * 60
+        workDays = [2, 3, 4, 5, 6]; uniDays = []
+        gymDaysPerWeek = 3; equipment = .gym
+        dietaryPreferences = []; allergies = []; caffeineHabit = ""
+        calorieCountingEnabled = true
+        deficitPercent = 0.15; proteinPerKg = 1.6
+        fluidRestriction = false; quickWaterMl = [150, 250, 500]
+        sleepTargetHours = 8; windDownMinutes = 45
+        mealPattern = [.breakfast, .lunch, .dinner]
+        autoSaveFood = false; keepConversationHistory = true
+        aiProviderRaw = "anthropic"; aiModel = "claude-sonnet-5-5"
+    }
+}
+
+@Model
+final class Place {
+    @Attribute(.unique) var id: UUID
+    var name: String
+    var category: SessionCategory
+    var latitude: Double
+    var longitude: Double
+    var radiusM: Double
+    var enabled: Bool
+    var expectedStartMinute: Int?
+    var expectedEndMinute: Int?
+    var remindOnArrival: Bool
+    /// Gap shorter than this between exit and re-enter is treated as a break.
+    var breakToleranceMin: Int
+    var createdAt: Date
+
+    init(name: String, category: SessionCategory, latitude: Double, longitude: Double, radiusM: Double = 150) {
+        id = UUID(); self.name = name; self.category = category
+        self.latitude = latitude; self.longitude = longitude; self.radiusM = radiusM
+        enabled = true; remindOnArrival = false; breakToleranceMin = 20; createdAt = .now
+    }
+}
+
+@Model
+final class LocationEvent {
+    @Attribute(.unique) var id: UUID
+    var placeID: UUID
+    var transition: PlaceTransition
+    var at: Date
+    /// True when iOS delivered it after relaunch or late. Timestamp is then approximate.
+    var delayed: Bool
+
+    init(placeID: UUID, transition: PlaceTransition, at: Date, delayed: Bool = false) {
+        id = UUID(); self.placeID = placeID; self.transition = transition; self.at = at; self.delayed = delayed
+    }
+}
+
+@Model
+final class TrackedSession {
+    @Attribute(.unique) var id: UUID
+    var category: SessionCategory
+    var placeID: UUID?
+    var start: Date
+    /// Nil while open.
+    var end: Date?
+    var status: SessionStatus
+    var source: Source
+    var breaks: [BreakInterval]
+    var note: String
+
+    init(category: SessionCategory, placeID: UUID? = nil, start: Date, end: Date? = nil,
+         status: SessionStatus = .estimatedPresence, source: Source = .auto) {
+        id = UUID(); self.category = category; self.placeID = placeID
+        self.start = start; self.end = end; self.status = status; self.source = source
+        breaks = []; note = ""
+    }
+}
+
+@Model
+final class WeightRecord {
+    @Attribute(.unique) var id: UUID
+    var at: Date
+    var kg: Double
+    var source: Source
+    init(at: Date = .now, kg: Double, source: Source = .manual) {
+        id = UUID(); self.at = at; self.kg = kg; self.source = source
+    }
+}
+
+@Model
+final class ReminderPreference {
+    @Attribute(.unique) var key: String
+    var enabled: Bool
+    /// Meaning depends on key: interval minutes for water, minutes before bed for caffeine cutoff, etc.
+    var value: Int
+    var snoozedUntil: Date?
+    init(key: String, enabled: Bool, value: Int) {
+        self.key = key; self.enabled = enabled; self.value = value
+    }
+}
