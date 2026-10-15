@@ -9,10 +9,10 @@ Native SwiftUI app, local first. No account. Works without a wearable. Built for
 Status, stated plainly:
 
 * Written and unit tested on a Mac without Xcode. The iOS app was never built in Xcode, never run in a simulator, never run on an iPhone.
-* Core logic is tested: 132 Swift tests in `ResetCore`, 15 pytest tests for the backend.
-* App target passes an approximate type check (`scripts/typecheck-app.sh`). That script swaps SwiftData for a stub and uses Mac Catalyst frameworks. It is not a build.
-* AI features were never run against a live model. No API key was available. Provider request shapes were checked against current docs, except the OpenAI compatible adapter (see section 7).
-* Nutrition clients were checked against live USDA and Open Food Facts responses.
+* Core logic is tested: 162 Swift tests in `ResetCore`, 25 pytest tests for the backend.
+* App and widget targets pass an approximate type check (`scripts/typecheck-app.sh`). That script swaps SwiftData for a stub and uses Mac Catalyst frameworks. It is not a build.
+* AI features were never run against a live model. Anthropic request shapes were checked against current docs. The OpenAI and compatible adapters follow the documented Chat Completions format and are covered by stub tests only (see section 7).
+* Nutrition clients (USDA, Open Food Facts barcode, Open Food Facts text search) were checked against live responses.
 
 Expect a few Xcode build errors on first open. Fix or report them.
 
@@ -35,7 +35,10 @@ Five tabs: Today, Activity, Nutrition, Insights, Coach. Settings and profile ope
 * Today: one priority sentence, nine quick actions, recovery, sleep, energy, steps, activity, water, caffeine, food, work and university hours, upcoming reminders, workout, timeline. Missing data reads "Not recorded", "Permission required" or "Estimate unavailable". Nothing is invented.
 * Work and university time: geofenced places, estimated presence kept apart from confirmed time, breaks, manual timer, review list, editor, day, week, month totals.
 * Activity: steps and distance from Health or the motion sensor, weekly chart, imported workouts, walk timer, manual workouts, no double counting of overlapping reports.
-* Food: describe in words, photograph, search USDA, scan barcode, manual entry, saved meals, recents. Estimates stay labeled. Duplicate guard. Edit and delete.
+* Food: describe in words, photograph, search USDA and Open Food Facts, scan barcode, manual entry, saved meals, recents. Estimates stay labeled. Duplicate guard. Edit and delete.
+* Meal ideas: a What to eat card suggests meals for the slot, place (cafeteria, home, quick) and time you have, using remaining calories and protein, your diet words and allergies. Works with no AI. Portions are typical estimates.
+* Purchases: paste receipt or statement text, photograph a receipt, or send text through a Shortcut. Items wait as drafts until you say you ate them. Prices, totals and card numbers are stripped and never stored. Optional rules only prefill the food box.
+* Widget: small and medium home screen widget with today's water, calories and protein, and plus buttons for water.
 * Calories and protein: Mifflin St Jeor, moderate capped deficit, balance against maintenance, weight log and trend, maintenance suggestion from own data, option to turn calorie counting off.
 * Water: quick buttons, custom amounts, goal, reminders inside waking hours, notification actions, Siri and Shortcuts action.
 * Caffeine: drinks catalog with source notes, saved drinks, daily total, estimated remaining range, late cutoff reminder, symptom safety message.
@@ -56,7 +59,9 @@ RESET/               iOS app target
   Models/            SwiftData models, session adapters
   Services/          location, Health, notifications, Keychain, AI config
   Features/          Today, Activity, Nutrition, Insights, Coach, Sleep, Time, Recovery, Settings, Onboarding
-  Intents/           Log water Shortcut
+  Intents/           Log water and Add purchase text Shortcuts
+RESETWidgets/        home screen widget extension
+Shared/              code compiled into both the app and the widget
 ResetCore/           Swift package, no platform dependencies
   Sources/           energy, sessions, activity, food, nutrition clients, AI providers, caffeine,
                      hydration, meal timing, sleep, recovery, workouts, insights, coach, reminders
@@ -66,6 +71,8 @@ scripts/             test runner, approximate type check
 ```
 
 Rule: arithmetic, timestamps, totals and validation live in `ResetCore` and are tested. The app maps stored records to core values and renders them. Language models only interpret text and photos, and chat.
+
+Widget data flow: the app publishes a small snapshot into an App Group. The widget only reads it. Button taps are queued there and turned into water records the next time the app opens, so the widget never touches the database.
 
 Model deviations from the spec list: `WorkSession` and `UniversitySession` are one `TrackedSession` with a category. `EnergyCheckIn` and `FatigueCheckIn` are one `CheckIn` with a kind. `NutritionEstimate` is the `Nutrition` value inside each `FoodItem`. `DailySummary` is computed on demand so it never goes stale.
 
@@ -80,6 +87,7 @@ open RESET.xcodeproj
 1. Select the RESET target, Signing and Capabilities, choose your Team.
 2. Change the bundle identifier to something unique.
 3. Confirm the HealthKit capability is present. The entitlement file is `RESET/RESET.entitlements`.
+   Add the App Groups capability to BOTH the RESET and RESETWidgets targets with the group `group.com.reset.ai`. If you change the bundle id, change the group in `Shared/WidgetShared.swift` and in both entitlement files, and set the widget bundle id to `<app id>.widgets`. Without it the app works and the widget shows "Open RE:SET".
 4. Confirm Background Modes shows Location updates and Background fetch.
 5. Add an app icon in an asset catalog. None is included.
 6. Build for an iPhone or the simulator.
@@ -123,17 +131,22 @@ Allow them in Settings, Reminders, or when first prompted. Nine categories, each
 
 Open Settings, AI and data sources. Keys go into the iOS Keychain on the phone. Nothing is stored in source, the bundle or UserDefaults.
 
-* Anthropic: paste a key. Default model id `claude-sonnet-5-5`, editable. Uses the Messages API.
-* OpenAI compatible (xAI, OpenAI): base URL and key. Follows the Chat Completions format. Not tested against a live account. xAI documents a `/v1/responses` API on its main reference page, so confirm the endpoint, the model name and image support with your provider first.
-* RE:SET backend proxy: URL and token. Recommended for anything beyond personal testing, because the provider key then stays on your server. See `backend/`.
+Pick one of four providers. Each keeps its own key and model, so you can switch freely. Save and test connection sends one tiny request and reports problems in plain words.
+
+* Anthropic: key plus model. Default model id `claude-sonnet-5-5`, editable. Uses the Messages API.
+* OpenAI: key plus a model name you choose. No default is supplied, because OpenAI model names change and the model must accept images and tools. The app sends `max_completion_tokens` (OpenAI deprecated `max_tokens`). Some reasoning models reject function tools; if the coach or Test fails, try a non reasoning model.
+* Other OpenAI compatible (xAI and similar): base URL, key, model. Sends `max_tokens`. xAI documents a `/v1/responses` API on its main reference page, which this option does not use. Confirm the endpoint, model and image support with your provider.
+* RE:SET backend proxy: URL and token. Recommended for anything beyond personal testing, because the provider key then stays on your server. The server supports Anthropic and OpenAI.
 
 Backend setup:
 
 ```
 cd backend
-cp .env.example .env     # fill in ANTHROPIC_API_KEY and PROXY_TOKENS
+cp .env.example .env     # set AI_PROVIDER, the provider key and model, and PROXY_TOKENS
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+The server reads `backend/.env`, then the repository root `.env`, and never prints values. It accepts the common misspelling `ANTROPIC_API_KEY` with a warning. For OpenAI set `OPENAI_API_KEY` and `OPENAI_MODEL`. `PROXY_TOKENS` is required, otherwise the server refuses requests.
 
 Serve it over HTTPS (reverse proxy or a platform that terminates TLS). The app accepts http only for testing.
 
@@ -142,7 +155,7 @@ Without any key, manual logging, barcode, USDA search and all non AI features wo
 ## 8. Nutrition data
 
 * USDA FoodData Central: text search and AI lookups. Free key from fdc.nal.usda.gov, added in Settings. Without one the shared `DEMO_KEY` is used, limited to about 30 requests per hour per IP. Public domain data.
-* Open Food Facts: barcode lookup only, API v2. The API has no v2 full text search. Reads are rate limited. Data licence ODbL, attribution shown in the app.
+* Open Food Facts: barcode lookup through API v2, and text search through Search-a-licious (search.openfoodfacts.org), because API v2 has no full text search. Products without nutrition data are skipped. Reads are rate limited. Data licence ODbL, attribution shown in the app. Branded AI items check this database first.
 * AI estimates are used only when no database match exists, and are labeled "AI estimate, not from a database".
 * Branded product values should be checked against the label. Cafeteria portions are always estimates.
 
@@ -161,16 +174,16 @@ Logging food manually, saved meals, recents, water, caffeine, sleep, check-ins, 
 
 * AI food description, food photo analysis, coach conversation: provider key or proxy.
 * USDA search at a reasonable rate: free USDA key.
-* Barcode lookup: internet, no key.
+* Barcode lookup and product text search: internet, no key.
 * Proxy: your own server and shared token.
 
 ## 12. Needs a physical device and permissions
 
 * Geofence arrivals and departures: real iPhone, Always location.
 * Steps and sleep import: Health permission, real iPhone for useful data.
-* Camera meal photos and barcode scanning: real iPhone, camera permission. The simulator has no camera.
+* Camera meal photos, receipt photos and barcode scanning: real iPhone, camera permission. The simulator has no camera.
 * Notifications: permission. Delivery timing is easiest to judge on a device.
-* Siri and Shortcuts: device with the app installed.
+* Siri, Shortcuts and the home screen widget: device with the app installed and the App Groups capability enabled.
 
 Nothing in this repository has been verified on a physical iPhone.
 
@@ -193,16 +206,15 @@ Setup:
 
 Not implemented:
 
-* Receipt photography, share sheet purchase import, banking integrations. These were optional in the brief. A purchase never becomes a consumed food entry on its own.
-* Widgets. The Log water Shortcut covers one tap logging.
+* Banking integrations. No bank API was verified or available, and storing bank logins is out of scope. Instead, paste statement text or send it through the Add purchase text Shortcut. iOS does not let apps read notifications or other apps, and RE:SET does not try. A purchase never becomes a food entry without your confirmation, and rules only prefill text.
+* Share sheet extension target. The Shortcuts route (Add purchase text with Show in Share Sheet) covers sharing text without a separate extension.
 * Phone based sleep detection. Deliberately omitted because it is unreliable.
-* Meal suggestions without AI. Suggestions come through the coach.
-* Open Food Facts text search.
+* Meal ideas are a fixed catalog with typical portions, not personalised recipes. Ask the coach with AI on for something freer.
 * Automated UI tests. Only core and backend logic is tested.
 
 Known risks:
 
-* Hand written project file and untested SwiftData macros, `CLMonitor` event handling, Health queries and notification actions on real hardware.
+* Hand written project file, now with two targets (app and widget). Untested: SwiftData macros, `CLMonitor` event handling, Health queries, notification actions, widget refresh and App Group sharing on real hardware.
 * AI JSON replies are validated strictly, but real model behavior was not observed. Expect prompt tuning.
 * Caffeine values in the drinks catalog come from public secondary sources and are marked "typical, check your can".
 

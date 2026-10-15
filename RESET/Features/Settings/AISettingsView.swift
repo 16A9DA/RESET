@@ -55,7 +55,7 @@ struct AISettingsView: View {
                 case .proxy:
                     TextField("Proxy URL", text: $proxyBase).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
                     keyField("Proxy token", .proxy)
-                    Text("The proxy holds the provider key and chooses the model on the server. See backend/README in the repository.")
+                    Text("The proxy holds the provider key and chooses the model on the server. Setup steps are in section 7 of the repository README.")
                         .font(.caption).foregroundStyle(Theme.secondaryText)
                 }
                 Button(testing ? "Testing" : "Save and test connection") { Task { await saveAndTest() } }.disabled(testing)
