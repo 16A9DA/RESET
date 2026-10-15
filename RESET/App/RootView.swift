@@ -28,6 +28,7 @@ struct RootView: View {
             TodayView().tag(AppTab.today).tabItem { Label("Today", systemImage: "sun.max") }
             ActivityView().tag(AppTab.activity).tabItem { Label("Activity", systemImage: "figure.walk") }
             NutritionView().tag(AppTab.nutrition).tabItem { Label("Nutrition", systemImage: "fork.knife") }
+            InsightsView().tag(AppTab.insights).tabItem { Label("Insights", systemImage: "chart.line.uptrend.xyaxis") }
             CoachView().tag(AppTab.coach).tabItem { Label("Coach", systemImage: "sparkles") }
         }
     }
