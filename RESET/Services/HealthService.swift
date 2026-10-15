@@ -120,6 +120,26 @@ final class HealthService {
         try? context.save()
     }
 
+    /// Imports nights written to Health by other devices or apps. A night you entered yourself is never replaced.
+    func importSleep(since: Date, context: ModelContext) async {
+        guard available, authRequested, let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return }
+        let predicate = HKQuery.predicateForSamples(withStart: since, end: .now)
+        let desc = HKSampleQueryDescriptor(predicates: [.categorySample(type: type, predicate: predicate)],
+                                           sortDescriptors: [SortDescriptor(\.startDate)], limit: HKObjectQueryNoLimit)
+        guard let samples = try? await desc.result(for: store) else { return }
+        let asleepValues: Set<Int> = [HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue, HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                                      HKCategoryValueSleepAnalysis.asleepDeep.rawValue, HKCategoryValueSleepAnalysis.asleepREM.rawValue]
+        let spans = samples.filter { asleepValues.contains($0.value) }.map { TimeSpan(start: $0.startDate, end: $0.endDate) }
+        let nights = SleepPlanner.nights(from: spans)
+        let existing = (try? context.fetch(FetchDescriptor<SleepRecord>())) ?? []
+        for n in nights {
+            let day = Calendar.current.startOfDay(for: n.end)
+            if existing.contains(where: { Calendar.current.isDate($0.day, inSameDayAs: day) }) { continue }
+            context.insert(SleepRecord(day: day, asleepAt: n.start, wokeAt: n.end, source: .imported))
+        }
+        try? context.save()
+    }
+
     /// Saves a timed walk to Health. Only called when the user allowed sharing.
     func saveWalk(start: Date, end: Date) async {
         guard available, store.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized else { return }

@@ -179,6 +179,15 @@ enum Planner {
             out += Hydration.waterReminders(shape: shape, now: now, lastDrink: drinks.first?.at, todayMl: today,
                                             goalMl: profile.effectiveWaterGoalMl, intervalMinutes: interval)
         }
+        let bedOn = NotificationScheduler.enabled(.bedtime, in: context)
+        let wakeOn = NotificationScheduler.enabled(.wake, in: context)
+        if bedOn || wakeOn {
+            out += SleepPlanner.reminders(shape: shape, targetHours: profile.sleepTargetHours, windDownMinutes: profile.windDownMinutes,
+                                          now: now, bedtimeOn: bedOn, wakeOn: wakeOn)
+        }
+        if NotificationScheduler.enabled(.caffeine, in: context) {
+            out += SleepPlanner.caffeineReminders(shape: shape, hoursBefore: 8, now: now)
+        }
         if NotificationScheduler.enabled(.meal, in: context) {
             let quiet = NotificationScheduler.pref("meal.quiet", in: context)?.snoozedUntil
             let meals = (try? context.fetch(FetchDescriptor<MealRecord>(sortBy: [SortDescriptor(\.at, order: .reverse)]))) ?? []

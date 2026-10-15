@@ -27,6 +27,11 @@ struct ActivityView: View {
                         Button("Record a workout") { recording = true }
                     }
                     history
+                    NavigationLink { SleepView() } label: {
+                        Card(title: "Sleep") {
+                            Text("Plan tonight, log last night, see trends").foregroundStyle(Theme.secondaryText)
+                        }
+                    }.buttonStyle(.plain)
                     NavigationLink { TimeTrackingView() } label: {
                         Card(title: "Work and university") {
                             Text("Hours, places and corrections").foregroundStyle(Theme.secondaryText)
