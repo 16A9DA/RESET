@@ -63,6 +63,7 @@ struct TodayView: View {
                 }
             }
             .task { await health.refresh(); await notifier.rebuild(context: context) }
+            .task(id: [meals.count, waters.count, caffeines.count, acts.count, Int(health.todaySteps ?? -1)]) { WidgetBridge.publish(s) }
             .refreshable { await health.refresh() }
             .sheet(item: $sheet) { which in
                 switch which {

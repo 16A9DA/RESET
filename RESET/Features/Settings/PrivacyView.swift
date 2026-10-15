@@ -77,6 +77,7 @@ struct PrivacyView: View {
                 try context.delete(model: ChatMessage.self)
             case .everything:
                 try Store.resetAll(context)
+                WidgetBridge.clear()
                 [Keychain.usdaKey, Keychain.anthropicKey, Keychain.openAIKey, Keychain.customKey, Keychain.proxyToken].forEach { Keychain.set(nil, for: $0) }
                 let d = UserDefaults.standard
                 (["walk.start", "health.authRequested", AIConfig.customBaseKey, AIConfig.proxyBaseKey, "appearance"]

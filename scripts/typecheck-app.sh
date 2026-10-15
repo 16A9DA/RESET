@@ -18,6 +18,7 @@ swiftc $TARGET $FW -parse-as-library -emit-module -module-name SDStub -emit-modu
   -emit-library -static -o "$WORK/out/libSDStub.a" scripts/typecheck/SDStub.swift
 
 cp -R RESET "$WORK/src/RESET"
+cp -R Shared "$WORK/src/Shared"
 python3 - "$WORK/src/RESET" <<'PY'
 import re, sys, pathlib
 for f in pathlib.Path(sys.argv[1]).rglob("*.swift"):
@@ -66,3 +67,6 @@ if [ -n "$PROBE" ]; then
   echo 'func probe2(p: UserProfile) { p.noSuchProperty = 3 }' >> "$WORK/src/RESET/Features/Shared/Theme.swift"
 fi
 swiftc -typecheck $TARGET $FW -I "$WORK/out" $(find "$WORK/src" -name '*.swift') 2>&1 | sed "s#$WORK/src/##" | grep -E "error:" | grep -v "^ " || echo "typecheck: no errors"
+
+# The widget extension: its own sources plus the shared folder, no SwiftData or ResetCore.
+swiftc -typecheck $TARGET $FW $(find Shared RESETWidgets -name '*.swift') 2>&1 | grep -E "error:" | grep -v "^ " || echo "widget typecheck: no errors"

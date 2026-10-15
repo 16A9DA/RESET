@@ -29,12 +29,14 @@ struct RESETApp: App {
                 .task {
                     notifier.setup(container: container)
                     coach.configure(container: container, health: health)
+                    WidgetBridge.drain(context: container.mainContext)
                     await tracker.start(context: container.mainContext)
                     await notifier.rebuild(context: container.mainContext)
                 }
                 .onChange(of: phase) { _, new in
                     if new == .background { Self.scheduleRefresh() }
                     if new == .active {
+                        WidgetBridge.drain(context: container.mainContext)
                         Task {
                             await tracker.start(context: container.mainContext)
                             await notifier.rebuild(context: container.mainContext)
