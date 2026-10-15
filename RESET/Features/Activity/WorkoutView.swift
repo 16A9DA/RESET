@@ -110,6 +110,12 @@ struct WorkoutDetail: View {
                         }
                     }
                 }
+                if plan.kind == .strength || plan.kind == .run {
+                    Section("Fuel") {
+                        if plan.kind == .strength { Text(MealTiming.workoutFuel(kind: plan.kind, minutesUntil: 60)).font(.subheadline) }
+                        Text(MealTiming.workoutFuel(kind: plan.kind, minutesUntil: nil)).font(.subheadline)
+                    }
+                }
                 Section {
                     Picker("How hard was it?", selection: $effort) { ForEach(1...5, id: \.self) { Text("\($0)").tag($0) } }
                     Button(done ? "Logged" : "Mark as done") { complete() }.disabled(done)

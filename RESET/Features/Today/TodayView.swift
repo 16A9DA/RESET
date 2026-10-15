@@ -154,6 +154,11 @@ struct TodayView: View {
             }
             if s.mealsLogged == 0 { Text("No meals logged yet. That may just mean you have not logged.").font(.footnote).foregroundStyle(Theme.secondaryText) }
             if s.estimatedItems > 0 { Text("\(s.estimatedItems) item(s) are estimates.").font(.caption).foregroundStyle(Theme.warn) }
+            if Calendar.current.component(.hour, from: .now) >= 19 {
+                Text(MealTiming.eveningSummary(kcal: s.kcalConsumed, proteinG: s.proteinG, targetKcal: s.calorieCounting ? s.kcalTarget : nil,
+                                               targetProtein: s.proteinTargetG, mealsLogged: s.mealsLogged))
+                    .font(.footnote).padding(.top, 4)
+            }
         }
     }
 
