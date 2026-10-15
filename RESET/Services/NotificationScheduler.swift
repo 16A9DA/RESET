@@ -190,6 +190,26 @@ enum Planner {
         if NotificationScheduler.enabled(.caffeine, in: context) {
             out += SleepPlanner.caffeineReminders(shape: shape, hoursBefore: 8, now: now)
         }
+        let cal = Calendar.current
+        if NotificationScheduler.enabled(.movement, in: context) {
+            out += DailyReminders.movement(workStart: profile.workStartMinute, workEnd: profile.workEndMinute, workDays: profile.workDays,
+                                           intervalMinutes: NotificationScheduler.value(.movement, default: 90, in: context), now: now)
+        }
+        let acts = (try? context.fetch(FetchDescriptor<ActivityRecord>())) ?? []
+        if NotificationScheduler.enabled(.walk, in: context) {
+            let walked = acts.contains { ($0.kind == .walk || $0.kind == .run) && cal.isDateInToday($0.start) && $0.minutes >= 15 }
+            out += DailyReminders.walk(shape: shape, workEnd: profile.workEndMinute, walkedToday: walked, now: now)
+        }
+        if NotificationScheduler.enabled(.workout, in: context) {
+            let week = SessionMath.week(of: now)
+            let strength = acts.filter { $0.kind == .strength && week.contains($0.start) }
+            out += DailyReminders.workoutPrep(shape: shape, workEnd: profile.workEndMinute, sessionsThisWeek: strength.count,
+                                              targetPerWeek: profile.gymDaysPerWeek, doneToday: strength.contains { cal.isDateInToday($0.start) }, now: now)
+        }
+        if NotificationScheduler.enabled(.checkIn, in: context) {
+            let has = ((try? context.fetch(FetchDescriptor<CheckIn>())) ?? []).contains { cal.isDateInToday($0.at) && ($0.kind == .energy || $0.kind == .fatigue) }
+            out += DailyReminders.checkIn(shape: shape, hasCheckInToday: has, now: now)
+        }
         if NotificationScheduler.enabled(.meal, in: context) {
             let quiet = NotificationScheduler.pref("meal.quiet", in: context)?.snoozedUntil
             let meals = (try? context.fetch(FetchDescriptor<MealRecord>(sortBy: [SortDescriptor(\.at, order: .reverse)]))) ?? []
