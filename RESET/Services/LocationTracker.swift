@@ -64,7 +64,9 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
         servicesEnabled = CLLocationManager.locationServicesEnabled()
         guard servicesEnabled, authorization == .authorizedAlways || authorization == .authorizedWhenInUse else { return }
 
-        let monitor = monitor ?? (await CLMonitor("reset.places"))
+        // await cannot sit inside the autoclosure of ??, so create it explicitly.
+        let monitor: CLMonitor
+        if let existing = self.monitor { monitor = existing } else { monitor = await CLMonitor("reset.places") }
         self.monitor = monitor
         await syncPlaces(monitor: monitor, context: context)
 
