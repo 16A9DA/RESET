@@ -8,6 +8,22 @@ enum AppTab: Hashable { case today, activity, nutrition, insights, coach }
 @Observable
 final class AppRouter {
     var tab: AppTab = .today
+    /// A screen a widget asked for. Cleared once Today has handled it.
+    var deepLink: DeepLink?
+
+    func open(_ link: DeepLink) {
+        switch link {
+        case .food, .photo, .checkIn:
+            tab = .today
+            deepLink = link
+        case .walk:
+            tab = .activity
+            // The user tapped a Start a walk widget, so that is explicit. Never restart one already running.
+            if UserDefaults.standard.double(forKey: "walk.start") == 0 { UserDefaults.standard.set(Date.now.timeIntervalSince1970, forKey: "walk.start") }
+        case .coach:
+            tab = .coach
+        }
+    }
 }
 
 private enum QuickSheet: String, Identifiable {
@@ -65,6 +81,8 @@ struct TodayView: View {
             .task { await health.refresh(); await notifier.rebuild(context: context) }
             .task(id: [meals.count, waters.count, caffeines.count, acts.count, Int(health.todaySteps ?? -1)]) { WidgetBridge.publish(s) }
             .refreshable { await health.refresh() }
+            .onAppear(perform: handleDeepLink)
+            .onChange(of: router.deepLink) { _, _ in handleDeepLink() }
             .sheet(item: $sheet) { which in
                 switch which {
                 case .food: AddFoodView()
@@ -75,6 +93,17 @@ struct TodayView: View {
                 case .workHours: NavigationStack { TimeTrackingView() }
                 }
             }
+        }
+    }
+
+    private func handleDeepLink() {
+        guard let link = router.deepLink else { return }
+        router.deepLink = nil
+        switch link {
+        case .food: sheet = .food
+        case .photo: sheet = .photo
+        case .checkIn: sheet = .checkIn
+        default: break
         }
     }
 

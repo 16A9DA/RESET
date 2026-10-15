@@ -9,7 +9,7 @@ Native SwiftUI app, local first. No account. Works without a wearable. Built for
 Status, stated plainly:
 
 * Written and unit tested on a Mac without Xcode. The iOS app was never built in Xcode, never run in a simulator, never run on an iPhone.
-* Core logic is tested: 162 Swift tests in `ResetCore`, 25 pytest tests for the backend.
+* Core logic is tested: 171 Swift tests (`ResetCore` plus the widget queue and deep link code), 25 pytest tests for the backend.
 * App and widget targets pass an approximate type check (`scripts/typecheck-app.sh`). That script swaps SwiftData for a stub and uses Mac Catalyst frameworks. It is not a build.
 * AI features were never run against a live model. Anthropic request shapes were checked against current docs. The OpenAI and compatible adapters follow the documented Chat Completions format and are covered by stub tests only (see section 7).
 * Nutrition clients (USDA, Open Food Facts barcode, Open Food Facts text search) were checked against live responses.
@@ -38,7 +38,10 @@ Five tabs: Today, Activity, Nutrition, Insights, Coach. Settings and profile ope
 * Food: describe in words, photograph, search USDA and Open Food Facts, scan barcode, manual entry, saved meals, recents. Estimates stay labeled. Duplicate guard. Edit and delete.
 * Meal ideas: a What to eat card suggests meals for the slot, place (cafeteria, home, quick) and time you have, using remaining calories and protein, your diet words and allergies. Works with no AI. Portions are typical estimates.
 * Purchases: paste receipt text, photograph a receipt, or send text through a Shortcut. Items wait as drafts until you say you ate them. Prices, totals and card numbers are stripped and never stored. Optional rules only prefill the food box.
-* Widget: small and medium home screen widget with today's water, calories and protein, and plus buttons for water.
+* Widgets, on the Home Screen and the Lock Screen:
+  * Today: water, calories and protein. Home Screen small and medium, Lock Screen circular ring, rectangular and inline. Water buttons add 150, 250 or 500 ml.
+  * Quick action: you choose what one tap does. Add water (with the amount you pick), one tap energy check-in (Low, OK, Great), or open the app straight to Log food, Photograph a meal, Start a walk, or Ask the coach. Touch and hold the widget, then Edit Widget.
+  * Numbers shown are what you logged, flagged as estimates, and old data is replaced by an Open RE:SET prompt.
 * Calories and protein: Mifflin St Jeor, moderate capped deficit, balance against maintenance, weight log and trend, maintenance suggestion from own data, option to turn calorie counting off.
 * Water: quick buttons, custom amounts, goal, reminders inside waking hours, notification actions, Siri and Shortcuts action.
 * Caffeine: drinks catalog with source notes, saved drinks, daily total, estimated remaining range, late cutoff reminder, symptom safety message.
@@ -72,7 +75,7 @@ scripts/             test runner, approximate type check
 
 Rule: arithmetic, timestamps, totals and validation live in `ResetCore` and are tested. The app maps stored records to core values and renders them. Language models only interpret text and photos, and chat.
 
-Widget data flow: the app publishes a small snapshot into an App Group. The widget only reads it. Button taps are queued there and turned into water records the next time the app opens, so the widget never touches the database.
+Widget data flow: the app publishes a small snapshot into an App Group. The widget only reads it. Water and energy button taps are queued there and turned into normal records the next time the app opens, so the widget never touches the database. Widgets open the app through `resetai://` links that name one of five fixed screens and carry no data; anything else is ignored.
 
 Model deviations from the spec list: `WorkSession` and `UniversitySession` are one `TrackedSession` with a category. `EnergyCheckIn` and `FatigueCheckIn` are one `CheckIn` with a kind. `NutritionEstimate` is the `Nutrition` value inside each `FoodItem`. `DailySummary` is computed on demand so it never goes stale.
 
@@ -87,7 +90,8 @@ open RESET.xcodeproj
 1. Select the RESET target, Signing and Capabilities, choose your Team.
 2. Change the bundle identifier to something unique.
 3. Confirm the HealthKit capability is present. The entitlement file is `RESET/RESET.entitlements`.
-   Add the App Groups capability to BOTH the RESET and RESETWidgets targets with the group `group.com.reset.ai`. If you change the bundle id, change the group in `Shared/WidgetShared.swift` and in both entitlement files, and set the widget bundle id to `<app id>.widgets`. Without it the app works and the widget shows "Open RE:SET".
+   Add the App Groups capability to BOTH the RESET and RESETWidgets targets with the group `group.com.reset.ai`. If you change the bundle id, change the group in `Shared/WidgetShared.swift` and in both entitlement files, and set the widget bundle id to `<app id>.widgets`. Without it the app works and widgets show "Open RE:SET".
+   To add a Lock Screen widget: touch and hold the Lock Screen, tap Customize, tap the widget area, then choose RE:SET.
 4. Confirm Background Modes shows Location updates and Background fetch.
 5. Add an app icon in an asset catalog. None is included.
 6. Build for an iPhone or the simulator.
@@ -100,7 +104,7 @@ Core tests without Xcode:
 scripts/test-core.sh
 ```
 
-With Xcode: `cd ResetCore && swift test`.
+With Xcode: `cd ResetCore && swift test`. The widget queue and link tests live in `scripts/widget-tests` and run only through `scripts/test-core.sh`.
 
 ## 4. Location permissions
 
@@ -183,7 +187,7 @@ Logging food manually, saved meals, recents, water, caffeine, sleep, check-ins, 
 * Steps and sleep import: Health permission, real iPhone for useful data.
 * Camera meal photos, receipt photos and barcode scanning: real iPhone, camera permission. The simulator has no camera.
 * Notifications: permission. Delivery timing is easiest to judge on a device.
-* Siri, Shortcuts and the home screen widget: device with the app installed and the App Groups capability enabled.
+* Siri, Shortcuts and the Home and Lock Screen widgets: device with the app installed and the App Groups capability enabled.
 
 Nothing in this repository has been verified on a physical iPhone.
 
@@ -213,7 +217,7 @@ Not implemented:
 
 Known risks:
 
-* Hand written project file, now with two targets (app and widget). Untested: SwiftData macros, `CLMonitor` event handling, Health queries, notification actions, widget refresh and App Group sharing on real hardware.
+* Hand written project file, now with two targets (app and widget). Untested: SwiftData macros, `CLMonitor` event handling, Health queries, notification actions, widget refresh and App Group sharing on real hardware. Whether Lock Screen buttons run while the phone is locked, or ask you to unlock first, is decided by iOS and was not checked.
 * AI JSON replies are validated strictly, but real model behavior was not observed. Expect prompt tuning.
 * Caffeine values in the drinks catalog come from public secondary sources and are marked "typical, check your can".
 

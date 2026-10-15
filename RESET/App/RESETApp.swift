@@ -26,6 +26,7 @@ struct RESETApp: App {
                 .environment(notifier)
                 .environment(router)
                 .environment(coach)
+                .onOpenURL { url in if let link = DeepLink.parse(url) { router.open(link) } }
                 .task {
                     notifier.setup(container: container)
                     coach.configure(container: container, health: health)
