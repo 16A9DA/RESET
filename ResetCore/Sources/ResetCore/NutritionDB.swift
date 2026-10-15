@@ -60,6 +60,61 @@ public struct OpenFoodFactsClient: Sendable {
     }
 }
 
+// MARK: Open Food Facts (text search)
+
+/// Full text product search through Search-a-licious (search.openfoodfacts.org). The classic v2 API has no text search.
+/// Rate limited like other OFF reads, so call only on user action. Many products have incomplete nutrition and are skipped.
+public struct OpenFoodFactsSearch: FoodLookup {
+    let http: HTTPClient
+    let userAgent: String
+
+    public init(http: HTTPClient = URLSessionClient(), userAgent: String = "RESET-AI/1.0 (personal app)") {
+        self.http = http; self.userAgent = userAgent
+    }
+
+    public func search(_ query: String) async throws -> [ReferenceFood] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2 else { return [] }
+        var c = URLComponents(string: "https://search.openfoodfacts.org/search")!
+        c.queryItems = [
+            .init(name: "q", value: q),
+            .init(name: "page_size", value: "8"),
+            .init(name: "fields", value: "code,product_name,brands,serving_quantity,nutriments"),
+        ]
+        var req = URLRequest(url: c.url!)
+        req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        return try Self.parse(try await http.send(req))
+    }
+
+    static func parse(_ data: Data) throws -> [ReferenceFood] {
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hits = root["hits"] as? [[String: Any]] else { throw NetError.badResponse }
+        return hits.compactMap { h in
+            // Reuse the single product parser so both OFF paths agree on units.
+            var product = h
+            if let b = h["brands"] as? [String] { product["brands"] = b.joined(separator: ",") }
+            guard let data = try? JSONSerialization.data(withJSONObject: ["status": 1, "product": product]) else { return nil }
+            return try? OpenFoodFactsClient.parse(data)
+        }
+    }
+}
+
+/// Tries each lookup in order, keeping whatever succeeds. One service being down or rate limited does not hide the others.
+public struct CombinedLookup: FoodLookup {
+    let lookups: [FoodLookup]
+    public init(_ lookups: [FoodLookup]) { self.lookups = lookups }
+
+    public func search(_ query: String) async throws -> [ReferenceFood] {
+        var out: [ReferenceFood] = []
+        var firstError: Error?
+        for l in lookups {
+            do { out += try await l.search(query) } catch { firstError = firstError ?? error }
+        }
+        if out.isEmpty, let firstError { throw firstError }
+        return out
+    }
+}
+
 // MARK: USDA FoodData Central (text search)
 
 /// foods/search. Public domain data (CC0). DEMO_KEY is limited to 30 requests per hour per IP, so users should add a free key.

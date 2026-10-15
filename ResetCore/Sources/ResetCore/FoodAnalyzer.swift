@@ -23,7 +23,7 @@ public enum FoodAnalyzer {
     - Do not give health advice. Do not invent brands. If nothing edible is described, return {"items":[]}.
     """
 
-    public static func analyze(text: String?, imageJPEG: Data?, provider: AIProvider, lookup: FoodLookup?) async throws -> FoodAnalysis {
+    public static func analyze(text: String?, imageJPEG: Data?, provider: AIProvider, lookup: FoodLookup?, brandLookup: FoodLookup? = nil) async throws -> FoodAnalysis {
         var parts: [AIPart] = []
         if let imageJPEG { parts.append(.image(mime: "image/jpeg", base64: imageJPEG.base64EncodedString())) }
         let prompt: String
@@ -34,12 +34,12 @@ public enum FoodAnalyzer {
         }
         parts.append(.text(prompt))
         let reply = try await provider.complete(AIRequest(system: system, messages: [AIMessage(role: .user, parts: parts)], maxTokens: 1500))
-        return try await finish(reply.text, lookup: lookup)
+        return try await finish(reply.text, lookup: lookup, brandLookup: brandLookup)
     }
 
-    static func finish(_ replyText: String, lookup: FoodLookup?) async throws -> FoodAnalysis {
+    static func finish(_ replyText: String, lookup: FoodLookup?, brandLookup: FoodLookup? = nil) async throws -> FoodAnalysis {
         let meal = try FoodValidator.parse(replyText)
-        let items = await FoodResolver.resolve(meal, lookup: lookup)
+        let items = await FoodResolver.resolve(meal, lookup: lookup, brandLookup: brandLookup)
         let unc = meal.uncertainties ?? []
         let sure = items.allSatisfy { $0.confidence >= .medium && ($0.verified || $0.nutrition.kcal > 0) }
         return FoodAnalysis(items: items, mealType: meal.mealType.flatMap { MealType(rawValue: $0) },

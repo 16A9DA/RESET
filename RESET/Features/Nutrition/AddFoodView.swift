@@ -47,6 +47,8 @@ struct AddFoodView: View {
     }
 
     private var lookup: USDAClient { USDAClient(apiKey: Keychain.get(Keychain.usdaKey)) }
+    /// Generic foods from USDA plus packaged products from Open Food Facts. One being down does not hide the other.
+    private var combined: CombinedLookup { CombinedLookup([lookup, OpenFoodFactsSearch()]) }
     private var draftTotal: Nutrition { items.filter(\.consumed).reduce(.zero) { $0 + $1.nutrition } }
 
     var body: some View {
@@ -166,7 +168,7 @@ struct AddFoodView: View {
         Task {
             defer { busy = false }
             do {
-                let a = try await FoodAnalyzer.analyze(text: input, imageJPEG: jpeg, provider: provider, lookup: lookup)
+                let a = try await FoodAnalyzer.analyze(text: input, imageJPEG: jpeg, provider: provider, lookup: lookup, brandLookup: OpenFoodFactsSearch())
                 aiSource = true
                 uncertainties = a.uncertainties
                 if let t = a.mealType { mealType = t }
@@ -190,7 +192,7 @@ struct AddFoodView: View {
                     Button("Search", action: runSearch).disabled(text.trimmingCharacters(in: .whitespaces).isEmpty || busy)
                 }
                 if Keychain.get(Keychain.usdaKey) == nil {
-                    Text("Using the shared demo key, which is limited to 30 searches an hour. Add a free USDA key in Settings for more.")
+                    Text("Generic foods come from USDA (shared demo key, about 30 searches an hour; add your own in Settings) and packaged products from Open Food Facts.")
                         .font(.caption).foregroundStyle(Theme.secondaryText)
                 }
             }
@@ -342,7 +344,7 @@ struct AddFoodView: View {
         Task {
             defer { busy = false }
             do {
-                results = try await lookup.search(text)
+                results = try await combined.search(text)
                 if results.isEmpty { error = "No matches. Try simpler words, or add it manually." }
             } catch { self.error = "\(error.localizedDescription) You can still add the food manually." }
         }

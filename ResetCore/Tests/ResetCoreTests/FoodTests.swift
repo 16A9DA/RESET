@@ -97,3 +97,34 @@ private let chicken = ReferenceFood(name: "Chicken, breast, raw", per100g: Nutri
     #expect(Duplicates.isLikelyDuplicate(text: "chicken sandwich and a cappuccino", at: t.addingTimeInterval(300), existing: ex))
     #expect(!Duplicates.isLikelyDuplicate(text: "chicken sandwich and a cappuccino", at: t.addingTimeInterval(3600), existing: ex))
 }
+
+@Test func offSearchParsesLiveShapeAndSkipsIncompleteHits() throws {
+    let json = """
+    {"hits":[
+    {"code":"5999884034483","product_name":"Hell Energy Drink","brands":["Hell Energy"],"nutriments":{}},
+    {"code":"5999860497875","product_name":"Red bull","brands":["Hell Energy","X"],"nutriments":{"proteins_100g":0.5,"fat_100g":0,"sodium_100g":0.08,"energy-kcal_100g":46}}],
+    "count":2}
+    """
+    let r = try OpenFoodFactsSearch.parse(Data(json.utf8))
+    #expect(r.count == 1 && r[0].name == "Red bull" && r[0].brand == "Hell Energy" && r[0].per100g.kcal == 46)
+    #expect(abs(r[0].per100g.sodiumMg! - 80) < 1e-9)
+    #expect(throws: NetError.badResponse) { try OpenFoodFactsSearch.parse(Data("{}".utf8)) }
+}
+
+private struct Failing: FoodLookup { func search(_ q: String) async throws -> [ReferenceFood] { throw NetError.rateLimited } }
+
+@Test func combinedLookupSurvivesOneFailure() async throws {
+    let c = CombinedLookup([Failing(), StubLookup(results: [chicken])])
+    #expect(try await c.search("x").count == 1)
+    await #expect(throws: NetError.rateLimited) { try await CombinedLookup([Failing()]).search("x") }
+}
+
+@Test func brandedItemsPreferTheProductDatabase() async {
+    let label = ReferenceFood(name: "Hell Energy Classic", brand: "Hell", per100g: Nutrition(kcal: 45, caffeineMg: 32), source: "Open Food Facts")
+    let generic = ReferenceFood(name: "Energy drink generic", per100g: Nutrition(kcal: 60), source: "USDA")
+    let p = ParsedItem(name: "Hell Energy Classic", brand: "Hell", grams: 250)
+    let i = await FoodResolver.resolve(p, lookup: StubLookup(results: [generic]), brandLookup: StubLookup(results: [label]))
+    #expect(i.dataSource == "Open Food Facts" && i.nutrition.kcal == 112.5 && i.nutrition.caffeineMg == 80)
+    let unbranded = await FoodResolver.resolve(ParsedItem(name: "Energy drink", grams: 250), lookup: StubLookup(results: [generic]), brandLookup: StubLookup(results: [label]))
+    #expect(unbranded.dataSource == "USDA")
+}

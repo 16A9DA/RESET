@@ -103,15 +103,20 @@ public enum FoodValidator {
 public enum FoodResolver {
     /// Turns parsed items into stored items. Database values win. The model's numbers are a labelled fallback.
     /// Lookup failures (offline, rate limit) degrade to the fallback and never throw away the entry.
-    public static func resolve(_ meal: ParsedMeal, lookup: FoodLookup?) async -> [FoodItem] {
+    public static func resolve(_ meal: ParsedMeal, lookup: FoodLookup?, brandLookup: FoodLookup? = nil) async -> [FoodItem] {
         var out: [FoodItem] = []
         for p in meal.items {
-            out.append(await resolve(p, lookup: lookup))
+            out.append(await resolve(p, lookup: lookup, brandLookup: brandLookup))
         }
         return out
     }
 
-    public static func resolve(_ p: ParsedItem, lookup: FoodLookup?) async -> FoodItem {
+    /// Branded items try the product database first (labels beat generic averages), then the generic one.
+    public static func resolve(_ p: ParsedItem, lookup: FoodLookup?, brandLookup: FoodLookup? = nil) async -> FoodItem {
+        if let brand = p.brand, !brand.isEmpty, let brandLookup,
+           let hit = try? await brandLookup.search("\(brand) \(p.name)"), best(hit, for: p) != nil {
+            return await resolve(p, lookup: StaticLookup(hit), brandLookup: nil)
+        }
         let baseConf = Confidence(rawValue: (p.confidence ?? "").lowercased()) ?? .medium
         let consumed = p.consumed ?? true
 
@@ -143,6 +148,12 @@ public enum FoodResolver {
             return !words.isDisjoint(with: rw)
         }
     }
+}
+
+struct StaticLookup: FoodLookup {
+    let results: [ReferenceFood]
+    init(_ r: [ReferenceFood]) { results = r }
+    func search(_ query: String) async throws -> [ReferenceFood] { results }
 }
 
 public enum Duplicates {

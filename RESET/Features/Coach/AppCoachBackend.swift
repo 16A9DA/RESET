@@ -149,7 +149,7 @@ final class AppCoachBackend: CoachBackend, @unchecked Sendable {
         }
         guard let provider else { return CoachToolResult(text: "AI is not set up, so food can't be interpreted. Ask the user to log it in the Nutrition tab.", isError: true) }
         do {
-            let a = try await FoodAnalyzer.analyze(text: text, imageJPEG: nil, provider: provider, lookup: lookup)
+            let a = try await FoodAnalyzer.analyze(text: text, imageJPEG: nil, provider: provider, lookup: lookup, brandLookup: OpenFoodFactsSearch())
             return await MainActor.run {
                 let meal = a.mealType ?? AddFoodView.guessMealType()
                 let total = a.items.filter(\.consumed).reduce(Nutrition.zero) { $0 + $1.nutrition }
