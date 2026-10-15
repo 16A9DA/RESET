@@ -14,5 +14,5 @@ swiftc -parse-as-library -swift-version 5 -o "$OUT/run" -I "$OUT" -L "$OUT" -lRe
   -plugin-path $CLT/usr/lib/swift/host/plugins/testing \
   -Xlinker -rpath -Xlinker $CLT/Library/Developer/Frameworks \
   -Xlinker -rpath -Xlinker $CLT/Library/Developer/usr/lib \
-  ResetCore/Tests/ResetCoreTests/*.swift scripts/TestMain.swift
+  ResetCore/Tests/ResetCoreTests/*.swift scripts/widget-tests/*.swift Shared/WidgetShared.swift scripts/TestMain.swift
 "$OUT/run"
