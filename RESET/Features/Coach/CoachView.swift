@@ -147,7 +147,7 @@ struct CoachView: View {
             Text(m.text)
                 .padding(12)
                 .background(m.role == "user" ? Theme.accent : Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .foregroundStyle(m.role == "user" ? Color.black : Color.white)
+                .foregroundStyle(m.role == "user" ? Color.black : Color.primary)
             if m.role != "user" { Spacer(minLength: 40) }
         }
     }

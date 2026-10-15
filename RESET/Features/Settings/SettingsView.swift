@@ -4,6 +4,7 @@ import ResetCore
 
 struct SettingsView: View {
     @Query private var profiles: [UserProfile]
+    @AppStorage("appearance") private var appearance = "dark"
 
     var body: some View {
         if let p = profiles.first {
@@ -21,6 +22,17 @@ struct SettingsView: View {
                     NavigationLink("Food and caffeine habits") { Form { HabitsSection(profile: p) }.navigationTitle("Habits") }
                 } header: { Text("Profile") } footer: {
                     Text("Every answer from setup can be changed here. Leaving details blank keeps features working with clearly labeled general estimates.")
+                }
+                Section("Appearance") {
+                    Picker("Theme", selection: $appearance) {
+                        Text("Dark").tag("dark")
+                        Text("Light").tag("light")
+                        Text("Match system").tag("system")
+                    }.pickerStyle(.segmented)
+                }
+                Section {
+                    NavigationLink("Privacy and data") { PrivacyView() }
+                    NavigationLink("How it works and limits") { AboutView() }
                 }
             }
             .navigationTitle("Settings")

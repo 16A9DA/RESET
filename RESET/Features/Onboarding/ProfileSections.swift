@@ -161,8 +161,8 @@ struct WeekdayPicker: View {
                     Text(symbols[d - 1])
                         .font(.subheadline.weight(.semibold))
                         .frame(width: 34, height: 34)
-                        .background(on ? Theme.accent : Color.white.opacity(0.1), in: Circle())
-                        .foregroundStyle(on ? .black : .white)
+                        .background(on ? Theme.accent : Color.primary.opacity(0.1), in: Circle())
+                        .foregroundStyle(on ? Color.black : Color.primary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Calendar.current.weekdaySymbols[d - 1])

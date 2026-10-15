@@ -1,10 +1,13 @@
 import SwiftUI
 
 enum Theme {
-    static let background = Color(red: 0.05, green: 0.05, blue: 0.07)
-    static let card = Color(red: 0.11, green: 0.11, blue: 0.14)
+    private static func dynamic(dark: UIColor, light: UIColor) -> Color {
+        Color(UIColor { $0.userInterfaceStyle == .dark ? dark : light })
+    }
+    static let background = dynamic(dark: UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 1), light: UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1))
+    static let card = dynamic(dark: UIColor(red: 0.11, green: 0.11, blue: 0.14, alpha: 1), light: .white)
     static let accent = Color(red: 0.80, green: 1.00, blue: 0.20)
-    static let secondaryText = Color.white.opacity(0.62)
+    static let secondaryText = Color.primary.opacity(0.62)
     static let good = Color(red: 0.35, green: 0.85, blue: 0.55)
     static let warn = Color(red: 1.0, green: 0.72, blue: 0.25)
     static let low = Color(red: 1.0, green: 0.45, blue: 0.40)
@@ -76,7 +79,7 @@ struct ProgressBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.1))
+                Capsule().fill(Color.primary.opacity(0.1))
                 Capsule().fill(tint).frame(width: geo.size.width * min(1, max(0, fraction)))
             }
         }

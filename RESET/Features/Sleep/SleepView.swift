@@ -73,7 +73,7 @@ struct SleepView: View {
             Card(title: "Hours slept") {
                 Chart(data) { r in
                     BarMark(x: .value("Day", r.day, unit: .day), y: .value("Hours", r.hours)).foregroundStyle(Theme.accent)
-                    if let t = profile?.sleepTargetHours { RuleMark(y: .value("Target", t)).foregroundStyle(.white.opacity(0.4)).lineStyle(StrokeStyle(dash: [4])) }
+                    if let t = profile?.sleepTargetHours { RuleMark(y: .value("Target", t)).foregroundStyle(Color.primary.opacity(0.4)).lineStyle(StrokeStyle(dash: [4])) }
                 }.frame(height: 140)
             }
         }

@@ -59,7 +59,7 @@ struct TimeTrackingView: View {
                     Text(s.category.rawValue.capitalized).font(.headline)
                     Spacer()
                     Text(label(for: s)).font(.caption).padding(.horizontal, 8).padding(.vertical, 2)
-                        .background(Color.white.opacity(0.1), in: Capsule())
+                        .background(Color.primary.opacity(0.1), in: Capsule())
                 }
                 Text("\(s.start.formatted(date: .abbreviated, time: .shortened)) to \(s.end.map { $0.formatted(date: .omitted, time: .shortened) } ?? "now")")
                     .font(.footnote).foregroundStyle(Theme.secondaryText)
