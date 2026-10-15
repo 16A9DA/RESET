@@ -9,7 +9,10 @@ struct RootView: View {
         Group {
             if let profile = profiles.first {
                 if profile.onboardingDone {
-                    Text("RE:SET AI").font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    NavigationStack {
+                        List { NavigationLink("Work and University") { TimeTrackingView() } }
+                            .navigationTitle("RE:SET AI")
+                    }
                 } else {
                     OnboardingView(profile: profile)
                 }
