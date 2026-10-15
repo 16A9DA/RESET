@@ -8,6 +8,7 @@ struct NutritionView: View {
     @Query(sort: \MealRecord.at, order: .reverse) private var meals: [MealRecord]
     @State private var adding = false
     @State private var editing: MealRecord?
+    @State private var logDrink = false
 
     private var profile: UserProfile? { profiles.first }
     private var today: [MealRecord] { meals.filter { Calendar.current.isDateInToday($0.at) } }
@@ -18,6 +19,7 @@ struct NutritionView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     summary
+                    CaffeineCard { logDrink = true }
                     Card(title: "Today") {
                         if today.isEmpty {
                             EmptyNote(systemImage: "fork.knife", title: "Nothing logged yet",
@@ -44,6 +46,7 @@ struct NutritionView: View {
             .navigationTitle("Nutrition")
             .toolbar { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Log food") }
             .sheet(isPresented: $adding) { AddFoodView() }
+            .sheet(isPresented: $logDrink) { LogDrinkView() }
             .sheet(item: $editing) { MealEditor(meal: $0) }
         }
     }

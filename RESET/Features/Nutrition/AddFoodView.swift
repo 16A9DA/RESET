@@ -325,6 +325,11 @@ struct AddFoodView: View {
         let conf = items.map(\.confidence).min() ?? .medium
         let src: Source = aiSource ? .aiEstimate : (items.allSatisfy(\.verified) ? .confirmed : .manual)
         context.insert(MealRecord(at: at, mealType: mealType, originalText: originalText, items: items, source: src, confidence: conf))
+        // Caffeine in a logged food or drink also lands in the caffeine log, labeled with where the number came from.
+        for i in items where i.consumed && (i.nutrition.caffeineMg ?? 0) > 0 {
+            context.insert(CaffeineRecord(at: at, name: i.name, servingMl: i.grams, mg: i.nutrition.caffeineMg!, mgSource: i.dataSource,
+                                          source: i.verified ? .confirmed : .aiEstimate))
+        }
         try? context.save()
         dismiss()
     }
