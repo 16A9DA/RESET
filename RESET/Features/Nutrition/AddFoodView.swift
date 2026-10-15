@@ -1,9 +1,10 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 import ResetCore
 
 enum FoodMethod: String, CaseIterable, Identifiable {
-    case search = "Search", barcode = "Barcode", manual = "Manual", saved = "Saved", recent = "Recent"
+    case describe = "Describe", photo = "Photo", search = "Search", barcode = "Barcode", manual = "Manual", saved = "Saved", recent = "Recent"
     var id: String { rawValue }
 }
 
@@ -12,11 +13,12 @@ struct AddFoodView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \SavedMeal.useCount, order: .reverse) private var saved: [SavedMeal]
     @Query(sort: \MealRecord.at, order: .reverse) private var meals: [MealRecord]
+    @Query private var profiles: [UserProfile]
 
     var initialItems: [FoodItem] = []
     var initialText = ""
 
-    @State private var method: FoodMethod = .search
+    @State private var method: FoodMethod = .describe
     @State private var items: [FoodItem] = []
     @State private var mealType: MealType = Self.guessMealType()
     @State private var at = Date.now
@@ -28,6 +30,11 @@ struct AddFoodView: View {
     @State private var grams = 100.0
     @State private var manual = FoodItem(name: "", grams: 100, nutrition: .zero, dataSource: "Entered by you", verified: false, confidence: .high)
     @State private var confirmDuplicate = false
+    @State private var uncertainties: [String] = []
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var showCamera = false
+    @State private var photo: UIImage?
+    @State private var aiSource = false
 
     static func guessMealType() -> MealType {
         switch Calendar.current.component(.hour, from: .now) {
@@ -50,6 +57,8 @@ struct AddFoodView: View {
 
                 Group {
                     switch method {
+                    case .describe: describePane
+                    case .photo: photoPane
                     case .search: searchPane
                     case .barcode: barcodePane
                     case .manual: manualPane
@@ -66,6 +75,10 @@ struct AddFoodView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
             .sheet(item: Binding(get: { picked.map(Picked.init) }, set: { picked = $0?.food })) { p in portionSheet(p.food) }
+            .fullScreenCover(isPresented: $showCamera) { CameraPicker { photo = $0 }.ignoresSafeArea() }
+            .onChange(of: pickerItem) { _, item in
+                Task { if let d = try? await item?.loadTransferable(type: Data.self), let img = UIImage(data: d) { photo = img } }
+            }
             .alert("Looks like a repeat", isPresented: $confirmDuplicate) {
                 Button("Save anyway") { save() }
                 Button("Cancel", role: .cancel) {}
@@ -75,6 +88,96 @@ struct AddFoodView: View {
     }
 
     private struct Picked: Identifiable { let food: ReferenceFood; var id: String { food.name + (food.brand ?? "") } }
+
+    // MARK: AI panes
+
+    private var provider: AIProvider? { AIConfig.provider(for: profiles.first) }
+
+    private var setupPrompt: some View {
+        VStack(spacing: 8) {
+            EmptyNote(systemImage: "sparkles", title: "AI is not set up",
+                      message: "Describing or photographing food needs an AI service key. Search, barcode, manual entry and saved meals work without one.")
+            if let p = profiles.first {
+                NavigationLink("Set up AI") { AISettingsView(profile: p) }
+            }
+        }
+    }
+
+    private var describePane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if provider == nil { setupPrompt }
+                TextField("e.g. chicken, rice, salad and some dressing at the cafeteria", text: $text, axis: .vertical)
+                    .lineLimit(3...6).padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+                Button { runAnalysis() } label: {
+                    HStack { if busy { ProgressView() }; Text(busy ? "Working out nutrition" : "Estimate nutrition") }
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
+                .disabled(busy || provider == nil || text.trimmingCharacters(in: .whitespaces).isEmpty)
+                if let error { Text(error).foregroundStyle(Theme.low).font(.footnote) }
+                aiNotes
+                Text("Tip: tap the microphone on the keyboard to dictate. Amounts like \"100 g\" are used exactly. Everything else is a portion estimate.")
+                    .font(.caption).foregroundStyle(Theme.secondaryText)
+            }.padding(.horizontal)
+        }
+    }
+
+    private var photoPane: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                if provider == nil { setupPrompt }
+                if let photo {
+                    Image(uiImage: photo).resizable().scaledToFit().frame(maxHeight: 220).clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                HStack {
+                    if CameraPicker.available { Button("Take photo") { showCamera = true } }
+                    PhotosPicker("Choose photo", selection: $pickerItem, matching: .images)
+                }
+                TextField("Anything to add? e.g. small portion, no dressing", text: $text)
+                    .padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+                Button { runAnalysis() } label: {
+                    HStack { if busy { ProgressView() }; Text(busy ? "Analyzing" : "Estimate from photo") }.frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
+                .disabled(busy || provider == nil || photo == nil)
+                if let error { Text(error).foregroundStyle(Theme.low).font(.footnote) }
+                aiNotes
+                Text("A photo cannot show exact calories. Oil, sauces and portion size are guesses, so check the result before saving.")
+                    .font(.caption).foregroundStyle(Theme.secondaryText)
+            }.padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder private var aiNotes: some View {
+        if !uncertainties.isEmpty {
+            Card(title: "Not sure about") {
+                ForEach(uncertainties, id: \.self) { Text($0).font(.footnote) }
+            }
+        }
+    }
+
+    private func runAnalysis() {
+        guard let provider else { return }
+        busy = true; error = nil; uncertainties = []
+        let jpeg = method == .photo ? photo.flatMap { ImagePrep.jpeg($0) } : nil
+        let input = text
+        Task {
+            defer { busy = false }
+            do {
+                let a = try await FoodAnalyzer.analyze(text: input, imageJPEG: jpeg, provider: provider, lookup: lookup)
+                aiSource = true
+                uncertainties = a.uncertainties
+                if let t = a.mealType { mealType = t }
+                if profiles.first?.autoSaveFood == true, a.canAutoSave {
+                    items = a.items; save(); return
+                }
+                items += a.items
+            } catch {
+                self.error = "\(error.localizedDescription) Nothing was saved. You can add the food by search or manually."
+            }
+        }
+    }
 
     // MARK: Panes
 
@@ -220,7 +323,7 @@ struct AddFoodView: View {
 
     private func save() {
         let conf = items.map(\.confidence).min() ?? .medium
-        let src: Source = items.allSatisfy(\.verified) ? .confirmed : .manual
+        let src: Source = aiSource ? .aiEstimate : (items.allSatisfy(\.verified) ? .confirmed : .manual)
         context.insert(MealRecord(at: at, mealType: mealType, originalText: originalText, items: items, source: src, confidence: conf))
         try? context.save()
         dismiss()
