@@ -7,6 +7,7 @@ struct RESETApp: App {
     @State private var tracker = LocationTracker()
     @State private var health = HealthService()
     @State private var notifier = NotificationScheduler()
+    @State private var router = AppRouter()
     @Environment(\.scenePhase) private var phase
 
     var body: some Scene {
@@ -16,6 +17,7 @@ struct RESETApp: App {
                 .environment(tracker)
                 .environment(health)
                 .environment(notifier)
+                .environment(router)
                 .task {
                     notifier.setup(container: container)
                     await tracker.start(context: container.mainContext)

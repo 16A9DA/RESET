@@ -17,6 +17,7 @@ struct AddFoodView: View {
 
     var initialItems: [FoodItem] = []
     var initialText = ""
+    var startWith: FoodMethod = .describe
 
     @State private var method: FoodMethod = .describe
     @State private var items: [FoodItem] = []
@@ -83,7 +84,7 @@ struct AddFoodView: View {
                 Button("Save anyway") { save() }
                 Button("Cancel", role: .cancel) {}
             } message: { Text("You logged the same thing in the last 10 minutes. Save it again?") }
-            .onAppear { items = initialItems; text = initialText }
+            .onAppear { items = initialItems; text = initialText; method = startWith }
         }
     }
 

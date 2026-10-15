@@ -4,15 +4,13 @@ import SwiftData
 struct RootView: View {
     @Environment(\.modelContext) private var context
     @Query private var profiles: [UserProfile]
+    @Environment(AppRouter.self) private var router
 
     var body: some View {
         Group {
             if let profile = profiles.first {
                 if profile.onboardingDone {
-                    TabView {
-                        ActivityView().tabItem { Label("Activity", systemImage: "figure.walk") }
-                        NutritionView().tabItem { Label("Nutrition", systemImage: "fork.knife") }
-                    }
+                    tabs
                 } else {
                     OnboardingView(profile: profile)
                 }
@@ -22,5 +20,14 @@ struct RootView: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .tint(Theme.accent)
+    }
+
+    private var tabs: some View {
+        @Bindable var router = router
+        return TabView(selection: $router.tab) {
+            TodayView().tag(AppTab.today).tabItem { Label("Today", systemImage: "sun.max") }
+            ActivityView().tag(AppTab.activity).tabItem { Label("Activity", systemImage: "figure.walk") }
+            NutritionView().tag(AppTab.nutrition).tabItem { Label("Nutrition", systemImage: "fork.knife") }
+        }
     }
 }

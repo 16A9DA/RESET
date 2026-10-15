@@ -16,6 +16,7 @@ final class NotificationScheduler: NSObject, UNUserNotificationCenterDelegate {
     private(set) var status: UNAuthorizationStatus = .notDetermined
     private(set) var scheduledCount = 0
     private(set) var nextWater: Date?
+    private(set) var upcoming: [PlannedReminder] = []
     private var container: ModelContainer?
     private let center = UNUserNotificationCenter.current()
 
@@ -114,6 +115,7 @@ final class NotificationScheduler: NSObject, UNUserNotificationCenterDelegate {
             try? await center.add(UNNotificationRequest(identifier: Self.idPrefix + p.id, content: c, trigger: trigger))
         }
         scheduledCount = planned.count
+        upcoming = planned
         nextWater = planned.first { $0.category == .water }?.fireDate
     }
 
