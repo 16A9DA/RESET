@@ -19,6 +19,7 @@ struct NutritionView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     summary
+                    MealIdeasCard()
                     WaterCard()
                     CaffeineCard { logDrink = true }
                     Card(title: "Today") {

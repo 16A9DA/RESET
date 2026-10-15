@@ -39,6 +39,13 @@ final class CoachModel {
         }
         let provider = AIConfig.provider(for: profile)
         if provider == nil || Safety.needsUrgentCare(t) {
+            if provider == nil, MealSuggester.wantsIdeas(t) {
+                let slot = MealSuggester.slot(in: t, fallback: AddFoodView.guessMealType())
+                let eating = MealSuggester.context(in: t, fallback: EatingContext(rawValue: UserDefaults.standard.string(forKey: "meal.context") ?? "") ?? .cafeteria)
+                let req = MealIdeaBuilder.request(context: context, profile: profile, health: health, slot: slot, eating: eating)
+                let text = MealSuggester.describe(MealSuggester.suggest(req), remainingKcal: req.remainingKcal, remainingProteinG: req.remainingProteinG)
+                context.insert(ChatMessage(role: "assistant", text: text)); try? context.save(); return
+            }
             if let a = LocalCoach.answer(t, summary: summary, foodsToday: foods, bedtime: bed, wake: nil) {
                 context.insert(ChatMessage(role: "assistant", text: a)); try? context.save(); return
             }
