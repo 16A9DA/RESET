@@ -9,7 +9,10 @@ struct RootView: View {
         Group {
             if let profile = profiles.first {
                 if profile.onboardingDone {
-                    ActivityView()
+                    TabView {
+                        ActivityView().tabItem { Label("Activity", systemImage: "figure.walk") }
+                        NutritionView().tabItem { Label("Nutrition", systemImage: "fork.knife") }
+                    }
                 } else {
                     OnboardingView(profile: profile)
                 }

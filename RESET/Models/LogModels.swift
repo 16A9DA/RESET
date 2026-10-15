@@ -201,18 +201,3 @@ struct PlannedExercise: Codable, Hashable {
     var restSec: Int
     var modification: String?
 }
-
-/// Verified = from a database or label. Otherwise it is an estimate and the UI says so.
-struct FoodItem: Codable, Hashable, Identifiable {
-    var id = UUID()
-    var name: String
-    var brand: String?
-    var grams: Double
-    var preparation: String?
-    var nutrition: Nutrition
-    var dataSource: String
-    var verified: Bool
-    var confidence: Confidence
-    var consumed: Bool = true
-}
-
