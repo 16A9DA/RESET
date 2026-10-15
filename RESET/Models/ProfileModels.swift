@@ -29,6 +29,7 @@ final class UserProfile {
     var uniDays: [Int]
     var gymDaysPerWeek: Int
     var equipment: Equipment
+    var trainingLevelRaw: String
 
     var dietaryPreferences: [String]
     var allergies: [String]
@@ -55,7 +56,7 @@ final class UserProfile {
         goal = .fatLossKeepMuscle; activityLevel = .moderate; units = .metric
         wakeMinute = 7 * 60; bedMinute = 23 * 60
         workDays = [2, 3, 4, 5, 6]; uniDays = []
-        gymDaysPerWeek = 3; equipment = .gym
+        gymDaysPerWeek = 3; equipment = .gym; trainingLevelRaw = "returning"
         dietaryPreferences = []; allergies = []; caffeineHabit = ""
         calorieCountingEnabled = true
         deficitPercent = 0.15; proteinPerKg = 1.6

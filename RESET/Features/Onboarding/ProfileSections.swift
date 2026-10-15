@@ -87,6 +87,9 @@ struct GoalSection: View {
                 ForEach(ActivityLevel.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             Stepper("Gym days per week: \(profile.gymDaysPerWeek)", value: $profile.gymDaysPerWeek, in: 0...7)
+            Picker("Training experience", selection: $profile.trainingLevel) {
+                ForEach(TrainingLevel.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
             Picker("Equipment", selection: $profile.equipment) {
                 ForEach(Equipment.allCases, id: \.self) { Text($0.title).tag($0) }
             }
