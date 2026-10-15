@@ -15,6 +15,8 @@ public struct FetchDescriptor<T: PersistentModel> {
 }
 
 public final class ModelContext {
+    public init() {}
+    public init(_ container: ModelContainer) {}
     public func fetch<T: PersistentModel>(_ d: FetchDescriptor<T>) throws -> [T] { [] }
     public func fetchCount<T: PersistentModel>(_ d: FetchDescriptor<T>) throws -> Int { 0 }
     public func insert<T: PersistentModel>(_ m: T) {}
