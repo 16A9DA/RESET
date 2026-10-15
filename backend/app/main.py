@@ -8,17 +8,38 @@ from collections import defaultdict, deque
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
+import logging
+
+from . import env
 from .anthropic_adapter import from_anthropic, to_anthropic
+from .openai_adapter import from_openai, to_openai
 from .schemas import AIRequest, AIResponse
 
+log = logging.getLogger("reset.proxy")
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+OPENAI_BASE = "https://api.openai.com/v1"
 MAX_BODY = 12_000_000
 
 
 class Settings:
+    """Reads the environment. AI_PROVIDER picks anthropic or openai; if unset, whichever key is present wins (Anthropic first)."""
+
     def __init__(self) -> None:
-        self.api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        self.model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5")
+        anthropic = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not anthropic and os.environ.get("ANTROPIC_API_KEY"):
+            # A common misspelling. Accept it, but say so, so the .env gets fixed.
+            log.warning("Found ANTROPIC_API_KEY. Rename it to ANTHROPIC_API_KEY in your .env.")
+            anthropic = os.environ["ANTROPIC_API_KEY"]
+        openai = os.environ.get("OPENAI_API_KEY", "")
+        chosen = os.environ.get("AI_PROVIDER", "").strip().lower()
+        self.provider = chosen if chosen in ("anthropic", "openai") else ("anthropic" if anthropic or not openai else "openai")
+        self.api_key = anthropic if self.provider == "anthropic" else openai
+        if self.provider == "anthropic":
+            self.model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5")
+        else:
+            # No default on purpose: OpenAI model names change, so the operator must choose a vision capable one.
+            self.model = os.environ.get("OPENAI_MODEL", "")
+        self.openai_base = os.environ.get("OPENAI_BASE_URL", OPENAI_BASE).rstrip("/")
         self.tokens = [t.strip() for t in os.environ.get("PROXY_TOKENS", "").split(",") if t.strip()]
         self.rate = int(os.environ.get("RATE_LIMIT_PER_MIN", "30"))
 
@@ -40,6 +61,8 @@ class RateLimiter:
 
 
 def create_app(settings: Settings | None = None, upstream: httpx.AsyncClient | None = None) -> FastAPI:
+    if settings is None:
+        env.load()
     cfg = settings or Settings()
     app = FastAPI(title="RE:SET AI proxy", docs_url=None, redoc_url=None)
     limiter = RateLimiter(cfg.rate)
@@ -67,20 +90,24 @@ def create_app(settings: Settings | None = None, upstream: httpx.AsyncClient | N
 
     @app.get("/healthz")
     async def healthz() -> dict[str, bool]:
-        return {"ok": True, "provider_configured": bool(cfg.api_key)}  # type: ignore[return-value]
+        return {"ok": True, "provider_configured": bool(cfg.api_key) and bool(cfg.model)}  # type: ignore[return-value]
 
     @app.post("/v1/ai/complete", response_model=AIResponse)
     async def complete(req: AIRequest, token: str = Depends(authorize)) -> AIResponse:
         if not cfg.api_key:
             raise HTTPException(503, "Provider key is not configured on the server.")
+        if not cfg.model:
+            raise HTTPException(503, "No model is configured on the server (set OPENAI_MODEL).")
         if not limiter.check(token):
             raise HTTPException(429, "Too many requests. Try again in a minute.")
+        if cfg.provider == "anthropic":
+            url, body = ANTHROPIC_URL, to_anthropic(req, cfg.model)
+            headers = {"x-api-key": cfg.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+        else:
+            url, body = f"{cfg.openai_base}/chat/completions", to_openai(req, cfg.model)
+            headers = {"Authorization": f"Bearer {cfg.api_key}", "content-type": "application/json"}
         try:
-            r = await client.post(
-                ANTHROPIC_URL,
-                json=to_anthropic(req, cfg.model),
-                headers={"x-api-key": cfg.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            )
+            r = await client.post(url, json=body, headers=headers)
         except httpx.TimeoutException:
             raise HTTPException(504, "The AI provider timed out.")
         except httpx.HTTPError:
@@ -93,8 +120,9 @@ def create_app(settings: Settings | None = None, upstream: httpx.AsyncClient | N
         if r.status_code >= 400:
             raise HTTPException(502, f"The AI provider returned an error ({r.status_code}).")
         try:
-            return from_anthropic(r.json())
-        except (ValueError, KeyError):
+            data = r.json()
+            return from_anthropic(data) if cfg.provider == "anthropic" else from_openai(data)
+        except (ValueError, KeyError, IndexError, TypeError):
             raise HTTPException(502, "Unreadable reply from the AI provider.")
 
     return app

@@ -9,9 +9,9 @@ from app.main import Settings, create_app
 TOKEN = "test-token-123"
 
 
-def make(handler, rate=30, key="sk-server-key", tokens=TOKEN):
+def make(handler, rate=30, key="sk-server-key", tokens=TOKEN, provider="anthropic", model="claude-sonnet-5-5"):
     s = Settings()
-    s.api_key, s.tokens, s.rate, s.model = key, [t for t in tokens.split(",") if t], rate, "claude-sonnet-5-5"
+    s.provider, s.api_key, s.tokens, s.rate, s.model = provider, key, [t for t in tokens.split(",") if t], rate, model
     upstream = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     return TestClient(create_app(s, upstream))
 
