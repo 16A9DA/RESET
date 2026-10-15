@@ -179,6 +179,14 @@ enum Planner {
             out += Hydration.waterReminders(shape: shape, now: now, lastDrink: drinks.first?.at, todayMl: today,
                                             goalMl: profile.effectiveWaterGoalMl, intervalMinutes: interval)
         }
+        if NotificationScheduler.enabled(.meal, in: context) {
+            let quiet = NotificationScheduler.pref("meal.quiet", in: context)?.snoozedUntil
+            let meals = (try? context.fetch(FetchDescriptor<MealRecord>(sortBy: [SortDescriptor(\.at, order: .reverse)]))) ?? []
+            let todayLogs = meals.filter { Calendar.current.isDateInToday($0.at) }.map { (at: $0.at, type: $0.mealType) }
+            let slots = MealTiming.slots(pattern: profile.mealPattern, shape: shape, on: now)
+            out += MealTiming.mealReminders(slots: slots, logsToday: todayLogs, now: now, quietUntil: quiet)
+            if let check = MealTiming.hungerCheck(lastMeal: meals.first?.at, shape: shape, now: now, quietUntil: quiet) { out.append(check) }
+        }
         return out
     }
 }

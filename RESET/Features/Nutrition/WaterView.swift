@@ -111,6 +111,19 @@ struct RemindersSettingsView: View {
                     Toggle(cat.title, isOn: binding(cat))
                 }
             }
+            if let p = profiles.first {
+                Section {
+                    ForEach(MealType.allCases, id: \.self) { m in
+                        Toggle(m.title, isOn: Binding(get: { p.mealPattern.contains(m) }, set: { on in
+                            if on { if !p.mealPattern.contains(m) { p.mealPattern.append(m) } } else { p.mealPattern.removeAll { $0 == m } }
+                            p.mealPattern.sort { MealType.allCases.firstIndex(of: $0)! < MealType.allCases.firstIndex(of: $1)! }
+                            try? context.save(); rebuild()
+                        }))
+                    }
+                } header: { Text("Meals you usually eat") } footer: {
+                    Text("Skip breakfast or add snacks as suits you. Reminders follow this pattern and your wake and bed times. A meal you log early cancels its reminder.")
+                }
+            }
             Section("Water") {
                 Stepper("About every \(waterInterval.wrappedValue / 60) h \(waterInterval.wrappedValue % 60) min", value: waterInterval, in: 90...240, step: 30)
                 if let p = profiles.first {
