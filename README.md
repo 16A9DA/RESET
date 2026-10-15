@@ -37,7 +37,7 @@ Five tabs: Today, Activity, Nutrition, Insights, Coach. Settings and profile ope
 * Activity: steps and distance from Health or the motion sensor, weekly chart, imported workouts, walk timer, manual workouts, no double counting of overlapping reports.
 * Food: describe in words, photograph, search USDA and Open Food Facts, scan barcode, manual entry, saved meals, recents. Estimates stay labeled. Duplicate guard. Edit and delete.
 * Meal ideas: a What to eat card suggests meals for the slot, place (cafeteria, home, quick) and time you have, using remaining calories and protein, your diet words and allergies. Works with no AI. Portions are typical estimates.
-* Purchases: paste receipt or statement text, photograph a receipt, or send text through a Shortcut. Items wait as drafts until you say you ate them. Prices, totals and card numbers are stripped and never stored. Optional rules only prefill the food box.
+* Purchases: paste receipt text, photograph a receipt, or send text through a Shortcut. Items wait as drafts until you say you ate them. Prices, totals and card numbers are stripped and never stored. Optional rules only prefill the food box.
 * Widget: small and medium home screen widget with today's water, calories and protein, and plus buttons for water.
 * Calories and protein: Mifflin St Jeor, moderate capped deficit, balance against maintenance, weight log and trend, maintenance suggestion from own data, option to turn calorie counting off.
 * Water: quick buttons, custom amounts, goal, reminders inside waking hours, notification actions, Siri and Shortcuts action.
@@ -206,7 +206,6 @@ Setup:
 
 Not implemented:
 
-* Banking integrations. No bank API was verified or available, and storing bank logins is out of scope. Instead, paste statement text or send it through the Add purchase text Shortcut. iOS does not let apps read notifications or other apps, and RE:SET does not try. A purchase never becomes a food entry without your confirmation, and rules only prefill text.
 * Share sheet extension target. The Shortcuts route (Add purchase text with Show in Share Sheet) covers sharing text without a separate extension.
 * Phone based sleep detection. Deliberately omitted because it is unreliable.
 * Meal ideas are a fixed catalog with typical portions, not personalised recipes. Ask the coach with AI on for something freer.

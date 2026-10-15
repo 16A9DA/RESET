@@ -48,7 +48,7 @@ struct PurchasesView: View {
                     .font(.footnote).foregroundStyle(Theme.secondaryText)
             }
 
-            Section("Paste receipt or statement text") {
+            Section("Paste receipt text") {
                 TextEditor(text: $pasted).frame(minHeight: 110).font(.footnote)
                 Toggle("Include non-food lines", isOn: $showAll).font(.footnote)
                 Button("Find items") { importPasted() }.disabled(pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -105,7 +105,7 @@ struct PurchasesView: View {
             }
 
             Section("Automation") {
-                Text("In the Shortcuts app, build a shortcut that accepts text and runs Add purchase text from RE:SET, then turn on Show in Share Sheet. Sharing a receipt, email or note text to it adds items here as drafts. iOS does not allow apps to read notifications or bank apps, so there is no automatic capture.")
+                Text("In the Shortcuts app, build a shortcut that accepts text and runs Add purchase text from RE:SET, then turn on Show in Share Sheet. Sharing a receipt, email or note text to it adds items here as drafts. iOS does not let apps read other apps or notifications, so nothing is captured automatically.")
                     .font(.footnote).foregroundStyle(Theme.secondaryText)
             }
         }

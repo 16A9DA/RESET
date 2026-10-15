@@ -28,7 +28,7 @@ struct ResetShortcuts: AppShortcutsProvider {
     }
 }
 
-/// Share text from any app (a receipt email, a note, a statement) through a Shortcut that runs this action.
+/// Share text from any app (a receipt email or a note) through a Shortcut that runs this action.
 /// It only creates drafts to review. Nothing is logged as eaten.
 struct AddPurchaseTextIntent: AppIntent {
     static var title: LocalizedStringResource = "Add purchase text"

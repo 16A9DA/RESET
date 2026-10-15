@@ -24,11 +24,10 @@ Thank you!
     #expect(!c.contains { $0.contains("total") || $0.contains("thank") || $0.contains("card") })
 }
 
-@Test func statementLinesBecomeMerchantNames() {
-    let c = PurchaseParser.parse("CARD PAYMENT TO MCDONALDS BUCHAREST 15.30 EUR 03/04\nPOS PURCHASE STARBUCKS 4,20")
-    #expect(c.count == 2)
-    #expect(c[0].text.lowercased().hasPrefix("mcdonalds") && c[0].category == .food)
-    #expect(c[1].text.lowercased().hasPrefix("starbucks"))
+@Test func restaurantReceiptLinesKeepTheirNames() {
+    let c = PurchaseParser.parse("McDonalds Bucharest 15.30 EUR\nStarbucks Coffee 4,20")
+    #expect(c.count == 2 && c[0].text.lowercased().hasPrefix("mcdonalds") && c[0].category == .food)
+    #expect(c[1].text.lowercased().hasPrefix("starbucks") && c[1].category == .drink)
 }
 
 @Test func categories() {

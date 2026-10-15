@@ -24,9 +24,7 @@ public struct PurchaseRule: Codable, Equatable, Sendable {
 public enum PurchaseParser {
     private static let skipWords = ["total", "subtotal", "sub total", "tax", "vat", "tva", "change", "cash", "balance", "thank you", "receipt",
                                     "invoice", "tel", "www", "http", "cashier", "terminal", "approved", "authorisation", "authorization",
-                                    "visa", "mastercard", "maestro", "iban", "account", "opening balance", "closing balance", "statement"]
-    private static let statementPrefixes = ["card payment to", "card purchase", "card payment", "payment to", "purchase at", "pos purchase", "pos",
-                                            "debit card", "debit", "purchase", "payment", "contactless", "apple pay", "google pay", "paypal *"]
+                                    "visa", "mastercard", "maestro"]
 
     private static let drinkWords = ["energy", "monster", "red bull", "hell ", "coffee", "cappuccino", "latte", "espresso", "tea", "cola", "juice",
                                      "water", "beer", "smoothie", "milkshake", "soda", "drink"]
@@ -41,7 +39,7 @@ public enum PurchaseParser {
                                        "mobile", "vodafone", "orange", "telekom", "electric", "gas bill", "fuel", "petrol", "tuition", "book",
                                        "cinema", "hotel", "airline", "ticket", "amazon", "ebay", "steam", "playstation", "app store", "google play"]
 
-    /// What is left of a payment line once its numbers are gone. Not a purchase.
+    /// What is left of a card payment line on a receipt once its numbers are gone. Not a purchase.
     private static let leftovers: Set<String> = ["card", "cash", "payment", "pos", "debit", "credit", "visa", "contactless", "online", "purchase", "ref", "reference"]
 
     // Money, dates, times and long digit runs (card and reference numbers).
@@ -58,11 +56,6 @@ public enum PurchaseParser {
     static func clean(_ line: String) -> String {
         var s = line
         for re in noise { s = re.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ") }
-        var low = s.lowercased()
-        for p in statementPrefixes.sorted(by: { $0.count > $1.count }) where low.trimmingCharacters(in: .whitespaces).hasPrefix(p) {
-            if let r = s.lowercased().range(of: p) { s.removeSubrange(s.startIndex..<r.upperBound) }
-            low = s.lowercased()
-        }
         let parts = s.split(whereSeparator: { " \t,;|*#:".contains($0) }).map(String.init)
         return parts.joined(separator: " ").trimmingCharacters(in: CharacterSet(charactersIn: " -_.()"))
     }
@@ -77,7 +70,7 @@ public enum PurchaseParser {
         return .unknown
     }
 
-    /// Parses pasted receipt or statement text. Lines with no letters, totals and headers are dropped.
+    /// Parses pasted receipt text. Lines with no letters, totals and headers are dropped.
     public static func parse(_ text: String, limit: Int = 60) -> [PurchaseCandidate] {
         var seen = Set<String>()
         var out: [PurchaseCandidate] = []
