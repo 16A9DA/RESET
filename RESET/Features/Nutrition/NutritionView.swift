@@ -7,6 +7,7 @@ struct NutritionView: View {
     @Query private var profiles: [UserProfile]
     @Query(sort: \MealRecord.at, order: .reverse) private var meals: [MealRecord]
     @State private var adding = false
+    @Query private var caffeines: [CaffeineRecord]
     @State private var editing: MealRecord?
 
     private var profile: UserProfile? { profiles.first }
@@ -16,23 +17,40 @@ struct NutritionView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
+                VStack(spacing: 12) {
                     summary
-                    MealIdeasCard()
                     WaterCard()
-                    CaffeineCard()
-                    Card(title: "Today") {
-                        if today.isEmpty {
-                            EmptyNote(systemImage: "fork.knife", title: "Nothing logged yet",
-                                      message: "Log what you ate. Not logging a meal does not mean you skipped it, so skip freely.",
-                                      actionTitle: "Log food") { adding = true }
+                    if caffeineMg > 0 {
+                        NavigationLink { ScrollView { CaffeineCard().padding() }.background(Theme.background).navigationTitle("Caffeine") } label: {
+                            HStack {
+                                Label("Caffeine", systemImage: "cup.and.saucer").font(.headline)
+                                Spacer()
+                                Text("\(Int(caffeineMg.rounded())) mg").foregroundStyle(Theme.secondaryText).monospacedDigit()
+                                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
+                            }
+                            .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        }.buttonStyle(Press())
+                    }
+                    NavigationLink { ScrollView { MealIdeasCard().padding() }.background(Theme.background).navigationTitle("Meal ideas") } label: {
+                        HStack {
+                            Label("Meal ideas", systemImage: "lightbulb").font(.headline)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
                         }
-                        ForEach(today) { m in
-                            Button { editing = m } label: { MealRow(meal: m) }.buttonStyle(.plain)
-                            if m.id != today.last?.id { Divider() }
+                        .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }.buttonStyle(Press())
+                    if today.isEmpty {
+                        EmptyNote(systemImage: "fork.knife", title: "Nothing logged yet",
+                                  message: "Not logging does not mean you skipped.", actionTitle: "Log food") { adding = true }
+                    } else {
+                        Card(title: "Today") {
+                            ForEach(today) { m in
+                                Button { editing = m } label: { MealRow(meal: m) }.buttonStyle(.plain)
+                                if m.id != today.last?.id { Divider() }
+                            }
                         }
                     }
-                    let older = meals.filter { !Calendar.current.isDateInToday($0.at) }.prefix(15)
+                    let older = meals.filter { !Calendar.current.isDateInToday($0.at) }.prefix(5)
                     if !older.isEmpty {
                         Card(title: "Earlier") {
                             ForEach(Array(older)) { m in
@@ -46,47 +64,41 @@ struct NutritionView: View {
             .background(Theme.background)
             .navigationTitle("Nutrition")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { NavigationLink { RemindersSettingsView() } label: { Image(systemName: "bell") }.accessibilityLabel("Reminders") }
-                ToolbarItem(placement: .topBarLeading) { NavigationLink { PurchasesView() } label: { Image(systemName: "bag") }.accessibilityLabel("Purchases") }
                 ToolbarItem(placement: .topBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Log food") }
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        NavigationLink("Reminders") { RemindersSettingsView() }
+                        NavigationLink("Purchases") { PurchasesView() }
+                    } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("More")
+                }
             }
             .sheet(isPresented: $adding) { AddFoodView() }
             .sheet(item: $editing) { MealEditor(meal: $0) }
         }
     }
 
-    @ViewBuilder private var summary: some View {
+    private var caffeineMg: Double { Caffeine.dailyTotal(caffeines.map(\.dose), on: .now) }
+
+    private var summary: some View {
         let plan = profile?.energyPlan
-        Card(title: "Calories and protein") {
-            if profile?.calorieCountingEnabled == false {
-                Text("Calorie counting is off. Protein and meals are still tracked. Turn it back on in Settings.")
-                    .font(.footnote).foregroundStyle(Theme.secondaryText)
-                BigMetric(value: "\(Int(totals.total.proteinG.rounded()))", unit: "g protein",
-                          caption: plan.map { "Target about \(Int($0.proteinG.rounded())) g" })
-            } else {
-                HStack(alignment: .top) {
-                    BigMetric(value: "\(Int(totals.total.kcal.rounded()))", unit: "kcal",
-                              caption: plan?.targetKcal.map { "Suggested about \(Int($0.rounded()))" } ?? "Target: Estimate unavailable")
-                    Spacer()
-                    BigMetric(value: "\(Int(totals.total.proteinG.rounded()))", unit: "g protein",
-                              caption: plan.map { "Target about \(Int($0.proteinG.rounded())) g" })
+        let counting = profile?.calorieCountingEnabled != false
+        return Card {
+            HStack(alignment: .firstTextBaseline) {
+                if counting {
+                    Text("\(Int(totals.total.kcal.rounded()))").font(.system(.largeTitle, design: .rounded, weight: .bold)).monospacedDigit()
+                    + Text(plan?.targetKcal.map { " / \(Int($0.rounded())) kcal" } ?? " kcal").foregroundStyle(Theme.secondaryText)
+                } else {
+                    Text("\(Int(totals.total.proteinG.rounded())) g protein").font(.system(.title, design: .rounded, weight: .bold))
                 }
-                if let t = plan?.targetKcal {
-                    ProgressBar(fraction: totals.total.kcal / t)
-                }
-                if let bal = Energy.balance(consumedKcal: totals.total.kcal, maintenanceKcal: plan?.maintenanceKcal) {
-                    Text("Balance so far: \(Int(bal.rounded())) kcal against estimated maintenance. The day is not over, so this is not a verdict.")
-                        .font(.footnote).foregroundStyle(Theme.secondaryText)
-                }
+                Spacer()
             }
-            HStack(spacing: 16) {
-                Text("Carbs \(Int(totals.total.carbsG.rounded())) g")
-                Text("Fat \(Int(totals.total.fatG.rounded())) g")
-                if let f = totals.total.fiberG { Text("Fiber \(Int(f.rounded())) g") }
-            }.font(.footnote).foregroundStyle(Theme.secondaryText)
-            if totals.estimatedItemCount > 0 {
-                Text("\(totals.estimatedItemCount) item(s) are estimates, not database values.")
-                    .font(.caption).foregroundStyle(Theme.warn)
+            if counting, let t = plan?.targetKcal { ProgressBar(fraction: totals.total.kcal / t) }
+            if counting {
+                HStack {
+                    Text("Protein").foregroundStyle(Theme.secondaryText)
+                    Spacer()
+                    Text("\(Int(totals.total.proteinG.rounded())) / \(Int((plan?.proteinG ?? 0).rounded())) g").monospacedDigit()
+                }.font(.subheadline)
             }
         }
     }
