@@ -277,9 +277,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET AI";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to photograph meals and scan food barcodes. Photos are analyzed only if you turn on AI.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery. This data stays on your iPhone and is never used for advertising.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery. It stays on your iPhone unless you allow AI features, and is never used for advertising.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RE:SET can save walks you record in the app to Apple Health.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave places you saved, such as work, university or the gym, so your time is recorded automatically. Your route is not recorded and location never leaves your iPhone.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave places you saved, such as work, university or the gym, so your time is recorded automatically. Your route is not recorded and coordinates never leave your iPhone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RE:SET uses your location to save places such as work, university or the gym, and to show them on a map.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "RE:SET reads step counts from your iPhone when Apple Health access is not granted.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a meal photo to estimate its nutrition. Photos are analyzed only if you turn on AI.";
@@ -312,9 +312,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET AI";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to photograph meals and scan food barcodes. Photos are analyzed only if you turn on AI.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery. This data stays on your iPhone and is never used for advertising.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery. It stays on your iPhone unless you allow AI features, and is never used for advertising.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RE:SET can save walks you record in the app to Apple Health.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave places you saved, such as work, university or the gym, so your time is recorded automatically. Your route is not recorded and location never leaves your iPhone.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave places you saved, such as work, university or the gym, so your time is recorded automatically. Your route is not recorded and coordinates never leave your iPhone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RE:SET uses your location to save places such as work, university or the gym, and to show them on a map.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "RE:SET reads step counts from your iPhone when Apple Health access is not granted.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a meal photo to estimate its nutrition. Photos are analyzed only if you turn on AI.";

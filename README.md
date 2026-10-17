@@ -106,10 +106,10 @@ Without AI, barcode scan, USDA search results and local coach answers still work
 
 * All data stays on the iPhone. A readable CSV and JSON copy is kept in the Files app under RE:SET AI, RE-SET Data.
 * No analytics, ads or tracking.
-* AI receives only the food text or photo you submit, your coach questions and daily totals the coach looks up, and only after you give permission. Health, location and places are never sent.
+* AI receives only what you allow: the food text or photo you submit, your coach questions and summary figures the coach looks up (calories, steps, sleep, weight, hours at work and gym). It needs separate permission. Coordinates, place names and raw Apple Health records are never sent.
 * Food search sends search words to USDA FoodData Central. Barcodes go to Open Food Facts.
 * Delete or export data in Settings, Privacy and data.
-* Privacy Policy and Terms of Use are in the app.
+* Privacy Policy, Consumer Health Data Policy and Terms of Use are in the app. Health data consent is asked separately on the first screen and can be withdrawn.
 
 ## Project layout
 

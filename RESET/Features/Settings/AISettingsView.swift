@@ -41,7 +41,7 @@ struct AISettingsView: View {
             Section {
                 Toggle("Allow sending to \(kind.title)", isOn: Binding(get: { consent }, set: { consent = $0; AIConfig.setConsent($0, for: kind) }))
             } header: { Text("Your permission") } footer: {
-                Text("If on, the food text or meal photos you submit, your questions to the coach and the daily totals the coach looks up are sent to \(kind.title) to get an answer. Location, places and Apple Health data are never sent. \(kind.title) handles it under its own privacy policy. Turn this off at any time and nothing is sent.")
+                Text("If on, \(kind.title) receives the food text or meal photos you submit, your coach questions, and summary figures the coach looks up (calories, protein, water, caffeine, steps, sleep, weight, workouts, hours at work, university and gym). Coordinates, place names and raw Apple Health records are never sent. \(kind.title) keeps data under its own privacy policy and its servers may be in another country. Turn this off at any time and nothing more is sent.")
             }
 
             Section {
@@ -73,7 +73,7 @@ struct AISettingsView: View {
             } header: {
                 Text(kind.title)
             } footer: {
-                Text("Keys are stored in the iOS Keychain on this device only, never in the app's files or source. A test sends one short message and uses a tiny amount of credit. Descriptions and meal photos you analyze are sent to the selected provider. Location and history are not.")
+                Text("Keys are stored in the iOS Keychain on this device only, never in the app's files or source. A test sends one short message and uses a tiny amount of credit. Only what you allow above is sent to the selected provider.")
             }
 
             Section {

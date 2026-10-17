@@ -9,7 +9,7 @@ struct RootView: View {
     var body: some View {
         Group {
             if let profile = profiles.first {
-                if profile.onboardingDone {
+                if profile.onboardingDone && Consent.current {
                     tabs
                 } else {
                     OnboardingView(profile: profile)

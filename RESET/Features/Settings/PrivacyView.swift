@@ -34,13 +34,17 @@ struct PrivacyView: View {
     var body: some View {
         Form {
             Section("Where your data lives") {
-                text("Everything you log stays on this iPhone. A readable copy is kept in the Files app so you own it. There is no RE:SET account and no RE:SET server unless you run the optional proxy yourself.")
+                text("Everything you log stays on this iPhone. A readable copy is kept in the Files app. There is no RE:SET account and no RE:SET server. iCloud or computer backups may include it under your Apple settings.")
                 text("API keys are kept in the iOS Keychain, only on this device.")
             }
             Section("What leaves the phone") {
-                text("Only when you turn on AI and give permission: the food description or meal photo you submit, the question you type to the coach, and the tool results the coach asks for, such as today's totals. Raw location, place coordinates and location history are never sent.")
-                text("Food searches go to USDA FoodData Central and barcode lookups go to Open Food Facts, with only the search text or barcode number.")
-                text("Your chosen AI provider has its own data policy. Check it before sending photos.")
+                text("Nothing, unless you turn on AI and give permission. Then the provider you chose receives the food text or photo you submit, your coach questions, and summary figures the coach looks up: calories, protein, water, caffeine, steps, sleep, weight, workouts and hours at work, university and the gym. Coordinates, place names and raw Apple Health records are never sent.")
+                text("Food searches send search words to USDA FoodData Central. Barcode lookups send the number to Open Food Facts.")
+                text("Your AI provider keeps data under its own policy. Read it before you send photos.")
+            }
+            Section("Your consent") {
+                if let d = Consent.date { text("You agreed on \(d.formatted(date: .abbreviated, time: .omitted)).") }
+                Button("Withdraw consent and delete everything", role: .destructive) { confirm = .everything }
             }
             Section("Location") {
                 text("RE:SET watches only the circles you save around places. It does not record your route. It keeps arrival and departure events for 30 days and your sessions until you delete them.")
@@ -87,8 +91,9 @@ struct PrivacyView: View {
                 try Store.resetAll(context)
                 WidgetBridge.clear()
                 [Keychain.usdaKey, Keychain.anthropicKey, Keychain.openAIKey, Keychain.customKey, Keychain.proxyToken].forEach { Keychain.set(nil, for: $0) }
+                Consent.clear()
                 let d = UserDefaults.standard
-                (["walk.start", "health.authRequested", AIConfig.customBaseKey, AIConfig.proxyBaseKey, "appearance"]
+                (["walk.start", "health.authRequested", "ai.consent.anthropic", "ai.consent.openai", "ai.consent.custom", "ai.consent.proxy", AIConfig.customBaseKey, AIConfig.proxyBaseKey, "appearance"]
                     + AIConfig.Kind.allCases.map { "ai.model.\($0.rawValue)" }).forEach { d.removeObject(forKey: $0) }
                 UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
                 try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent("reset-export"))

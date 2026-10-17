@@ -8,6 +8,7 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var remindersOn = true
     @State private var agreed = false
+    @State private var healthConsent = false
 
     private let lastStep = 4
 
@@ -45,7 +46,8 @@ struct OnboardingView: View {
                 Text("Estimates only, not medical advice. Your data stays on this iPhone.")
                     .font(.subheadline).foregroundStyle(Theme.secondaryText)
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("I am 16 or older and agree to the Terms of Use and Privacy Policy", isOn: $agreed).font(.subheadline)
+                    Toggle("I am 16 or older and agree to the Terms of Use", isOn: $agreed).font(.subheadline)
+                    Toggle("I consent to RE:SET AI processing my health data on this iPhone: food, weight, sleep, activity, Apple Health data and visits to places I save. I can withdraw this any time in Settings.", isOn: $healthConsent).font(.subheadline)
                     LegalLinks()
                 }
             }
@@ -72,13 +74,14 @@ struct OnboardingView: View {
                 if step == lastStep { finish() } else { withAnimation { step += 1 } }
             }
             .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
-            .disabled(step == 0 && !agreed)
+            .disabled(step == 0 && !(agreed && healthConsent))
         }
         .padding()
     }
 
     private func finish() {
         profile.onboardingDone = true
+        Consent.record()
         context.insert(ReminderPreference(key: "master", enabled: remindersOn, value: 0))
         try? context.save()
         Task { await health.requestAccess(); health.startBackgroundSync(context: context) }

@@ -34,6 +34,7 @@ struct SettingsView: View {
                     NavigationLink("Privacy and data") { PrivacyView() }
                     NavigationLink("Privacy Policy") { PrivacyPolicyView() }
                     NavigationLink("Terms of Use") { TermsView() }
+                    NavigationLink("Consumer Health Data Policy") { ConsumerHealthDataPolicyView() }
                 }
             }
             .navigationTitle("Settings")
