@@ -34,7 +34,7 @@ struct PrivacyView: View {
     var body: some View {
         Form {
             Section("Where your data lives") {
-                text("Everything you log stays on this iPhone in the app's private storage. There is no RE:SET account and no RE:SET server unless you run the optional proxy yourself.")
+                text("Everything you log stays on this iPhone. A readable copy is kept in the Files app so you own it. There is no RE:SET account and no RE:SET server unless you run the optional proxy yourself.")
                 text("API keys are kept in the iOS Keychain, only on this device.")
             }
             Section("What leaves the phone") {
