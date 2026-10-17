@@ -67,7 +67,7 @@ struct AddFoodView: View {
 
                 draftBar
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .navigationTitle("Log")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
@@ -104,7 +104,7 @@ struct AddFoodView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 TextField("What did you have?", text: $text, axis: .vertical)
-                    .lineLimit(2...5).padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+                    .lineLimit(2...5).padding(12).glass(12)
                     .submitLabel(.done)
                 Button { provider == nil ? runSearch() : runAnalysis() } label: {
                     HStack { if busy { ProgressView() }; Text("Add") }.frame(maxWidth: .infinity)

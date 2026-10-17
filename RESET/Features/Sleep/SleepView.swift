@@ -25,7 +25,7 @@ struct SleepView: View {
                 historyCard
             }.padding()
         }
-        .background(Theme.background)
+        .background(GlassBackdrop())
         .navigationTitle("Sleep")
         .toolbar { Button("Log sleep") { logging = true } }
         .sheet(isPresented: $logging) { SleepLogSheet() }

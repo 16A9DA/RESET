@@ -67,13 +67,13 @@ struct TodayView: View {
                     }
                     Button { sheet = .canEat } label: { row("Can I eat this?", icon: "questionmark.circle") }.buttonStyle(Press())
                     recoveryRow(s)
-                    NavigationLink { ScrollView { WorkoutCard().padding() }.background(Theme.background).navigationTitle("Workout") } label: {
+                    NavigationLink { ScrollView { WorkoutCard().padding() }.background(GlassBackdrop()).navigationTitle("Workout") } label: {
                         row("Workout", icon: "dumbbell")
                     }.buttonStyle(Press())
                 }
                 .padding(.horizontal).padding(.top, 8)
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .safeAreaInset(edge: .bottom) { logBar }
             .navigationTitle("Today")
             .toolbar {
@@ -190,7 +190,7 @@ struct TodayView: View {
             Text(title).font(.caption).foregroundStyle(Theme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(14)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .glass(20)
     }
 
     private func recoveryRow(_ s: DaySummary) -> some View {
@@ -202,7 +202,7 @@ struct TodayView: View {
                 Text(s.recoveryBand.title).foregroundStyle(Theme.secondaryText)
                 Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
             }
-            .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(16).glass(20)
         }.buttonStyle(Press())
     }
 
@@ -212,7 +212,7 @@ struct TodayView: View {
             Spacer()
             Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
         }
-        .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(16).glass(20)
     }
 
     /// One place to log anything you eat or drink. Floats over the content on a translucent layer.

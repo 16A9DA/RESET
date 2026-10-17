@@ -32,7 +32,6 @@ struct SettingsView: View {
                 }
                 Section {
                     NavigationLink("Privacy and data") { PrivacyView() }
-                    NavigationLink("How it works and limits") { AboutView() }
                     NavigationLink("Privacy Policy") { PrivacyPolicyView() }
                     NavigationLink("Terms of Use") { TermsView() }
                 }

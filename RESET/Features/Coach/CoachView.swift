@@ -123,7 +123,7 @@ struct CoachView: View {
                 }
                 inputBar
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .navigationTitle("AI Coach")
             .toolbar {
                 Menu {
@@ -192,13 +192,13 @@ struct CoachView: View {
     private var inputBar: some View {
         HStack(alignment: .bottom) {
             TextField("Message", text: $input, axis: .vertical).lineLimit(1...4)
-                .padding(10).background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+                .padding(10).glass(18)
                 .submitLabel(.send).onSubmit { send(input) }
             Button { send(input) } label: { Image(systemName: "arrow.up.circle.fill").font(.title) }
                 .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty || model.busy)
                 .accessibilityLabel("Send")
         }
-        .padding(10).background(Theme.background)
+        .padding(10).background(GlassBackdrop())
     }
 
     private func send(_ text: String) {

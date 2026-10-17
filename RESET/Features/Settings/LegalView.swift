@@ -34,7 +34,7 @@ private struct LegalDocument: View {
             }
             .padding()
         }
-        .background(Theme.background)
+        .background(GlassBackdrop())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }

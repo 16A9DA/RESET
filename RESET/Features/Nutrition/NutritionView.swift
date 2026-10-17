@@ -21,24 +21,16 @@ struct NutritionView: View {
                     summary
                     WaterCard()
                     if caffeineMg > 0 {
-                        NavigationLink { ScrollView { CaffeineCard().padding() }.background(Theme.background).navigationTitle("Caffeine") } label: {
+                        NavigationLink { ScrollView { CaffeineCard().padding() }.background(GlassBackdrop()).navigationTitle("Caffeine") } label: {
                             HStack {
                                 Label("Caffeine", systemImage: "cup.and.saucer").font(.headline)
                                 Spacer()
                                 Text("\(Int(caffeineMg.rounded())) mg").foregroundStyle(Theme.secondaryText).monospacedDigit()
                                 Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
                             }
-                            .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            .padding(16).glass(20)
                         }.buttonStyle(Press())
                     }
-                    NavigationLink { ScrollView { MealIdeasCard().padding() }.background(Theme.background).navigationTitle("Meal ideas") } label: {
-                        HStack {
-                            Label("Meal ideas", systemImage: "lightbulb").font(.headline)
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
-                        }
-                        .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    }.buttonStyle(Press())
                     if today.isEmpty {
                         EmptyNote(systemImage: "fork.knife", title: "Nothing logged yet",
                                   message: "Not logging does not mean you skipped.", actionTitle: "Log food") { adding = true }
@@ -61,16 +53,10 @@ struct NutritionView: View {
                 }
                 .padding()
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .navigationTitle("Nutrition")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Log food") }
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        NavigationLink("Reminders") { RemindersSettingsView() }
-                        NavigationLink("Purchases") { PurchasesView() }
-                    } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("More")
-                }
             }
             .sheet(isPresented: $adding) { AddFoodView() }
             .sheet(item: $editing) { MealEditor(meal: $0) }

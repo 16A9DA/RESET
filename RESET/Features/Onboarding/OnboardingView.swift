@@ -27,7 +27,7 @@ struct OnboardingView: View {
                 .scrollContentBackground(.hidden)
                 footer
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .navigationTitle(["Welcome", "About you", "Your goal", "Your schedule", "Habits"][step])
             .navigationBarTitleDisplayMode(.inline)
         }

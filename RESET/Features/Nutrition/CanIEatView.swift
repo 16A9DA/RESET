@@ -29,7 +29,7 @@ struct CanIEatView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     TextField("What is it?", text: $text, axis: .vertical)
-                        .lineLimit(1...4).padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+                        .lineLimit(1...4).padding(12).glass(12)
                         .submitLabel(.go).onSubmit { ask(text: text, image: nil) }
                     HStack(spacing: 10) {
                         if CameraPicker.available { pill("camera.fill", "Photo") { showCamera = true } }
@@ -49,7 +49,7 @@ struct CanIEatView: View {
                 }
                 .padding()
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .navigationTitle("Can I eat this?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }

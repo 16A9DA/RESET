@@ -20,14 +20,14 @@ struct ActivityView: View {
                     if !health.authRequested { healthCard }
                     stepsCard
                     WalkCard()
-                    navRow("Workout", icon: "dumbbell") { ScrollView { WorkoutCard().padding() }.background(Theme.background).navigationTitle("Workout") }
+                    navRow("Workout", icon: "dumbbell") { ScrollView { WorkoutCard().padding() }.background(GlassBackdrop()).navigationTitle("Workout") }
                     navRow("Sleep", icon: "moon") { SleepView() }
                     navRow("Work and university", icon: "briefcase") { TimeTrackingView() }
                     history
                 }
                 .padding()
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .navigationTitle("Activity")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button { recording = true } label: { Image(systemName: "plus") }.accessibilityLabel("Record a workout") }
@@ -48,7 +48,7 @@ struct ActivityView: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
             }
-            .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(16).glass(20)
         }.buttonStyle(Press())
     }
 

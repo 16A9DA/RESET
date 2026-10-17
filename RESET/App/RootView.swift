@@ -18,7 +18,7 @@ struct RootView: View {
                 ProgressView().task { context.insert(UserProfile()) }
             }
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(GlassBackdrop())
         .tint(Theme.accent)
     }
 

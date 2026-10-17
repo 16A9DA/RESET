@@ -8,6 +8,7 @@ struct PrivacyView: View {
     @Environment(NotificationScheduler.self) private var notifier
     @State private var confirm: Wipe?
     @State private var done: String?
+    @State private var exportURLs: [URL] = []
 
     enum Wipe: String, Identifiable {
         case location, food, chat, everything
@@ -46,6 +47,13 @@ struct PrivacyView: View {
             }
             Section("Health and safety") {
                 text("Calorie, energy use, sleep, recovery and food photo values are estimates. They are not medical advice, and nothing here diagnoses or treats a condition. If you feel unwell, get medical help.")
+            }
+            Section("Your data") {
+                if exportURLs.isEmpty {
+                    Button("Export my data") { exportURLs = (try? DataExporter.write(context: context)) ?? [] }
+                } else {
+                    ShareLink("Share \(exportURLs.count) files", items: exportURLs)
+                }
             }
             Section("Delete data") {
                 Button("Delete work and location history", role: .destructive) { confirm = .location }
