@@ -41,12 +41,28 @@ struct WorkoutCard: View {
     @State private var gymToday = true
     @State private var suggestion: WorkoutSuggestion?
     @State private var showing = false
+    @State private var advice: MissedWorkoutAdvice?
 
     var body: some View {
         Card(title: "Today's workout") {
             Stepper("Time available: \(minutes) min", value: $minutes, in: 10...90, step: 5)
             Toggle("Gym or home session planned today", isOn: $gymToday)
-            Button("Suggest a workout") { generate() }.buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
+            HStack {
+                Button("Suggest a workout") { generate() }.buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
+                Button("Can't today") { missed() }.buttonStyle(.bordered)
+                Spacer()
+                Button("Reset", role: .destructive) { reset() }.buttonStyle(.bordered)
+            }
+            if let a = advice {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(a.text).font(.subheadline)
+                    HStack(spacing: 16) {
+                        Label("\(a.walkMinutes) min walk", systemImage: "figure.walk")
+                        if a.eatLessKcal > 0 { Label("\(a.eatLessKcal) kcal less", systemImage: "fork.knife") }
+                    }.font(.footnote.weight(.semibold))
+                }
+                .padding(12).frame(maxWidth: .infinity, alignment: .leading).glass(14)
+            }
             if let todays = plans.filter({ Calendar.current.isDateInToday($0.day) }).max(by: { $0.createdAt < $1.createdAt }) {
                 Button { showing = true } label: {
                     HStack {
@@ -61,12 +77,23 @@ struct WorkoutCard: View {
                     }
                 }.buttonStyle(.plain)
             }
-            Text("Standing and walking through a work shift helps, but it is not counted as a workout.")
-                .font(.caption).foregroundStyle(Theme.secondaryText)
         }
         .sheet(isPresented: $showing) {
             if let p = plans.filter({ Calendar.current.isDateInToday($0.day) }).max(by: { $0.createdAt < $1.createdAt }) { WorkoutDetail(plan: p) }
         }
+    }
+
+    /// Clears today's plan and the advice so you can start over.
+    private func reset() {
+        plans.filter { Calendar.current.isDateInToday($0.day) }.forEach(context.delete)
+        try? context.save()
+        advice = nil; minutes = 45; gymToday = true
+    }
+
+    private func missed() {
+        let s = DaySummaryBuilder.build(context: context, profile: profiles.first, health: health)
+        advice = MissedWorkout.advice(consumedKcal: s.kcalConsumed, targetKcal: s.calorieCounting ? s.kcalTarget : nil,
+                                      weightKg: profiles.first?.weightKg ?? 75, mealsLogged: s.mealsLogged, steps: s.steps)
     }
 
     private func generate() {

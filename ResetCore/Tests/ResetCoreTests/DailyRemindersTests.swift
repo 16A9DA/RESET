@@ -68,3 +68,13 @@ private func food(_ name: String, kcal: Double, caffeine: Double? = nil) -> Food
     #expect(EatCheck.verdict(items: [food("peanut bar", kcal: 100)], remainingKcal: 800, caffeineTodayMg: 0, hoursToBed: 10, allergies: ["Peanut"]).level == .no)
     #expect(EatCheck.verdict(items: [food("cola", kcal: 100, caffeine: 40)], remainingKcal: 800, caffeineTodayMg: 0, hoursToBed: 4, allergies: []).level == .maybe)
 }
+
+@Test func missedWorkoutAdvice() {
+    let under = MissedWorkout.advice(consumedKcal: 1500, targetKcal: 2000, weightKg: 100, mealsLogged: 3, steps: 8000)
+    #expect(under.eatLessKcal == 0 && under.walkMinutes == 15)
+    let over = MissedWorkout.advice(consumedKcal: 2300, targetKcal: 2000, weightKg: 100, mealsLogged: 3, steps: nil)
+    #expect(over.walkMinutes == 50 && over.eatLessKcal == 0) // 300 kcal at about 6.1 kcal/min
+    let big = MissedWorkout.advice(consumedKcal: 3500, targetKcal: 2000, weightKg: 100, mealsLogged: 3, steps: nil)
+    #expect(big.walkMinutes <= 45 && big.eatLessKcal <= 300 && big.eatLessKcal > 0)
+    #expect(MissedWorkout.advice(consumedKcal: 0, targetKcal: 2000, weightKg: 80, mealsLogged: 0, steps: 1000).walkMinutes == 30)
+}

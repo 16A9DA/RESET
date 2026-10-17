@@ -125,13 +125,15 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
     }
 
-    /// Work and university fill themselves from place detection. Shown only when there is a goal today or time was recorded.
+    /// Work, university and gym fill themselves from place detection: "09:02 to 17:40, 8h 38m".
     @ViewBuilder private func timeRow(_ category: SessionCategory, _ s: DaySummary) -> some View {
         let now = Date.now
-        let done = SessionMath.totals(sessions.map(\.value), category: category, in: Day.interval(of: now), now: now).total
+        let w = Day.interval(of: now)
+        let today = sessions.filter { $0.category == category && w.contains($0.start) && $0.status != .needsReview }.sorted { $0.start < $1.start }
+        let done = SessionMath.totals(sessions.map(\.value), category: category, in: w, now: now).total
         let goal = profile?.goalSeconds(category)
-        let here = sessions.contains { $0.category == category && $0.end == nil }
-        if goal != nil || done > 0 || here {
+        let here = today.contains { $0.end == nil }
+        if goal != nil || !today.isEmpty {
             Card {
                 HStack {
                     Label(category.rawValue.capitalized, systemImage: category == .work ? "briefcase" : (category == .gym ? "dumbbell" : "graduationcap"))
@@ -139,8 +141,12 @@ struct TodayView: View {
                     if here { Text("Here now").font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 2)
                         .background(Theme.accent, in: Capsule()).foregroundStyle(.black) }
                     Spacer()
-                    Text(goal.map { "\(Fmt.hours(done)) of \(Fmt.hours($0))" } ?? Fmt.hours(done))
-                        .font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
+                    Text(Fmt.hours(done)).font(.system(.title3, design: .rounded, weight: .bold)).monospacedDigit()
+                }
+                if let first = today.first {
+                    let last = today.last?.end
+                    Text("\(first.start.formatted(date: .omitted, time: .shortened)) to \(last.map { $0.formatted(date: .omitted, time: .shortened) } ?? "now")")
+                        .font(.subheadline).foregroundStyle(Theme.secondaryText).monospacedDigit()
                 }
                 if let goal { ProgressBar(fraction: done / goal) }
             }
