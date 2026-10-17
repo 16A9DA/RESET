@@ -3,6 +3,7 @@ import SwiftData
 
 struct OnboardingView: View {
     @Environment(\.modelContext) private var context
+    @Environment(HealthService.self) private var health
     @Bindable var profile: UserProfile
     @State private var step = 0
     @State private var remindersOn = true
@@ -78,5 +79,6 @@ struct OnboardingView: View {
         profile.onboardingDone = true
         context.insert(ReminderPreference(key: "master", enabled: remindersOn, value: 0))
         try? context.save()
+        Task { await health.requestAccess(); health.startBackgroundSync(context: context) }
     }
 }

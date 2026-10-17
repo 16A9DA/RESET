@@ -25,6 +25,7 @@ final class HealthService {
     private(set) var distanceM: Double?
     private(set) var week: [DaySteps] = []
     private(set) var message: String?
+    private var syncing = false
 
     var available: Bool { HKHealthStore.isHealthDataAvailable() }
     var authRequested: Bool { UserDefaults.standard.bool(forKey: requestedKey) }
@@ -66,6 +67,32 @@ final class HealthService {
         }
         todaySteps = steps
         stepSource = source
+    }
+
+    /// Health wakes the app when a workout, a night of sleep or new steps arrive, so nothing needs opening.
+    func startBackgroundSync(context: ModelContext) {
+        guard available, authRequested, !syncing else { return }
+        syncing = true
+        let types: [(HKSampleType, HKUpdateFrequency)] = [
+            (HKObjectType.workoutType(), .immediate),
+            (HKObjectType.categoryType(forIdentifier: .sleepAnalysis), .immediate),
+            (HKObjectType.quantityType(forIdentifier: .stepCount), .hourly),
+        ].compactMap { t, f in t.map { ($0, f) } }
+        for (type, freq) in types {
+            store.enableBackgroundDelivery(for: type, frequency: freq) { _, _ in }
+            let q = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, done, _ in
+                nonisolated(unsafe) let finish = done
+                Task { @MainActor in
+                    guard let self else { finish(); return }
+                    let since = Calendar.current.date(byAdding: .day, value: -3, to: .now) ?? .now
+                    await self.importWorkouts(since: since, context: context)
+                    await self.importSleep(since: since, context: context)
+                    await self.refresh()
+                    finish()
+                }
+            }
+            store.execute(q)
+        }
     }
 
     // MARK: HealthKit queries

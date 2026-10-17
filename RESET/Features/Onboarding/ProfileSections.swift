@@ -105,6 +105,11 @@ struct ScheduleSection: View {
             DatePicker("Usually wake up", selection: $profile.wakeMinute.asTimeOfDay(), displayedComponents: .hourAndMinute)
             DatePicker("Usually go to bed", selection: $profile.bedMinute.asTimeOfDay(), displayedComponents: .hourAndMinute)
         }
+        Section {
+            NavigationLink("Add work, university or gym") { PlacesView() }
+        } header: { Text("Automatic tracking") } footer: {
+            Text("Search the name. RE:SET then notes when you arrive and leave by itself. Choose Always for location.")
+        }
         GoalHoursSection(title: "Work", hours: $profile.workGoalHours, onChange: profile.syncDays)
         GoalHoursSection(title: "University", hours: $profile.uniGoalHours, onChange: profile.syncDays)
     }

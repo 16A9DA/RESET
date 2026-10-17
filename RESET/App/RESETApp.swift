@@ -31,6 +31,7 @@ struct RESETApp: App {
                     notifier.setup(container: container)
                     coach.configure(container: container, health: health)
                     WidgetBridge.drain(context: container.mainContext)
+                    health.startBackgroundSync(context: container.mainContext)
                     await tracker.start(context: container.mainContext)
                     await notifier.rebuild(context: container.mainContext)
                 }
