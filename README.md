@@ -1,224 +1,151 @@
-# RE:SET AI
+<p align="center">
+  <img src="docs/logo.png" width="160" alt="RE:SET AI logo">
+</p>
 
-Personal health, fitness, nutrition, sleep and recovery app for iPhone. Phone collects data. Rules turn it into daily guidance. AI helps interpret food and chat.
+<h1 align="center">RE:SET AI</h1>
+
+<p align="center">A health app for a hectic schedule. It tracks by itself and tells you one next step.</p>
 
 ## Overview
 
-Native SwiftUI app, local first. No account. Works without a wearable. Built for someone who works about eight hours, attends university, wants to lose body fat and keep muscle, and drinks energy drinks.
+Native iPhone app. SwiftUI, SwiftData, local first. No account, no server. Your phone collects the data. Rules turn it into guidance. AI only helps read food and answer chat.
 
-Status, stated plainly:
+Design rule: the app removes work. It never adds it.
 
-* Written and unit tested on a Mac without Xcode. The iOS app was never built in Xcode, never run in a simulator, never run on an iPhone.
-* Core logic is tested: 171 Swift tests (`ResetCore` plus the widget queue and deep link code), 25 pytest tests for the backend.
-* App and widget targets pass an approximate type check (`scripts/typecheck-app.sh`). That script swaps SwiftData for a stub and uses Mac Catalyst frameworks. It is not a build.
-* AI features were never run against a live model. Anthropic request shapes were checked against current docs. The OpenAI and compatible adapters follow the documented Chat Completions format and are covered by stub tests only (see section 7).
-* Nutrition clients (USDA, Open Food Facts barcode, Open Food Facts text search) were checked against live responses.
+* Work, university and gym time record themselves from places you save.
+* Steps, workouts and sleep come from Apple Health.
+* Food is logged by describing it, photographing it or scanning a barcode.
+* Reminders follow your own habits, such as the time you usually eat lunch.
+* Missing data shows as missing. Nothing is guessed. Nothing is shaming.
 
-Expect a few Xcode build errors on first open. Fix or report them.
+## Features
 
-## Assumptions
+### Today
+* One priority sentence.
+* Work, university and gym rows. Each shows start to end and the total, for example `09:02 to 17:40` and `8h 38m`.
+* Food, water, steps, sleep and recovery at a glance.
+* Floating log bar: describe, photo, barcode.
+* Can I eat this?
 
-* No age, sex or fitness level assumed. Starting values 103 kg and 188 cm are editable defaults.
-* Without age, calorie estimates show "Estimate unavailable". Entering own maintenance calories unlocks them.
-* Without sex, a general midpoint of the Mifflin St Jeor constants is used and labeled.
-* Activity multiplier already covers habitual walking and training. Logged workouts are never added on top.
-* Deficit defaults to 15 percent, capped at 500 kcal, never below resting energy or 1200 kcal.
-* Protein defaults to 1.6 g per kg of target weight (or current weight). Adjustable.
-* Water goal starts near 30 ml per kg, clamped 1.5 to 3.5 L. Adjustable, or off with the fluid restriction setting.
-* Bundle id `com.reset.ai` is a placeholder. Change it.
-* Minimum iOS 17 (SwiftData, CLMonitor, Observation).
+### Activity
+* Steps with a weekly chart, walk timer, workouts imported from Health.
+* Workout planner. Reset clears the plan. Can't today gives a walk and a small food adjustment from today's log.
 
-## 1. What the app does
+### Nutrition
+* Calories and protein against your guide.
+* Next meal card. Carb heavy day suggests protein. High fat suggests lean. Over the guide suggests a light meal.
+* Water and caffeine. Caffeine from any logged drink is added by itself.
 
-Five tabs: Today, Activity, Nutrition, Insights, Coach. Settings and profile open from Today.
+### Insights
+* This week against last week.
+* Patterns found in your own data, such as sleep after long work days and sleep after training. Shown only with enough days.
 
-* Today: one priority sentence, nine quick actions, recovery, sleep, energy, steps, activity, water, caffeine, food, work and university hours, upcoming reminders, workout, timeline. Missing data reads "Not recorded", "Permission required" or "Estimate unavailable". Nothing is invented.
-* Work and university time: geofenced places, estimated presence kept apart from confirmed time, breaks, manual timer, review list, editor, day, week, month totals.
-* Activity: steps and distance from Health or the motion sensor, weekly chart, imported workouts, walk timer, manual workouts, no double counting of overlapping reports.
-* Food: describe in words, photograph, search USDA and Open Food Facts, scan barcode, manual entry, saved meals, recents. Estimates stay labeled. Duplicate guard. Edit and delete.
-* Meal ideas: a What to eat card suggests meals for the slot, place (cafeteria, home, quick) and time you have, using remaining calories and protein, your diet words and allergies. Works with no AI. Portions are typical estimates.
-* Purchases: paste receipt text, photograph a receipt, or send text through a Shortcut. Items wait as drafts until you say you ate them. Prices, totals and card numbers are stripped and never stored. Optional rules only prefill the food box.
-* Widgets, on the Home Screen and the Lock Screen:
-  * Today: water, calories and protein. Home Screen small and medium, Lock Screen circular ring, rectangular and inline. Water buttons add 150, 250 or 500 ml.
-  * Quick action: you choose what one tap does. Add water (with the amount you pick), one tap energy check-in (Low, OK, Great), or open the app straight to Log food, Photograph a meal, Start a walk, or Ask the coach. Touch and hold the widget, then Edit Widget.
-  * Numbers shown are what you logged, flagged as estimates, and old data is replaced by an Open RE:SET prompt.
-* Calories and protein: Mifflin St Jeor, moderate capped deficit, balance against maintenance, weight log and trend, maintenance suggestion from own data, option to turn calorie counting off.
-* Water: quick buttons, custom amounts, goal, reminders inside waking hours, notification actions, Siri and Shortcuts action.
-* Caffeine: drinks catalog with source notes, saved drinks, daily total, estimated remaining range, late cutoff reminder, symptom safety message.
-* Meals: slots from wake and bed times and your own pattern. "Have you eaten recently?" asks, never assumes. Neutral evening summary.
-* Sleep: bedtime from wake time, wind down, manual log with quality, optional Health import, trend.
-* Workouts: strength, walking, mobility, rest. Chosen by recovery, symptoms, time, equipment, level, recent sessions. Missed gym suggests a kind walk. Load only rises after completed sessions.
-* Recovery: transparent rule based indicator with reasons. Not a measurement.
-* Coach: chat that reads your data through a fixed tool set. Works partly offline for simple questions.
-* Insights: cautious pattern cards with observation counts. Export to JSON and CSV.
-* Privacy: what stays local, what AI use sends, granular deletion, full reset.
+### Coach
+* Chat that reads your data through a fixed set of tools. It cannot delete anything. Simple questions work with no AI.
 
-## 2. Architecture
+### Also
+* Widgets: Home Screen, Lock Screen, quick action.
+* Siri and Shortcuts: log water.
+* Liquid Glass design on iOS 26. Frosted material on earlier versions.
 
-```
-RESET.xcodeproj      hand written project, synchronized folders, local package
-RESET/               iOS app target
-  App/               entry point, tab router
-  Models/            SwiftData models, session adapters
-  Services/          location, Health, notifications, Keychain, AI config
-  Features/          Today, Activity, Nutrition, Insights, Coach, Sleep, Time, Recovery, Settings, Onboarding
-  Intents/           Log water and Add purchase text Shortcuts
-RESETWidgets/        home screen widget extension
-Shared/              code compiled into both the app and the widget
-ResetCore/           Swift package, no platform dependencies
-  Sources/           energy, sessions, activity, food, nutrition clients, AI providers, caffeine,
-                     hydration, meal timing, sleep, recovery, workouts, insights, coach, reminders
-  Tests/             Swift Testing suites
-backend/             optional FastAPI proxy
-scripts/             test runner, approximate type check
-```
+## How it works
 
-Rule: arithmetic, timestamps, totals and validation live in `ResetCore` and are tested. The app maps stored records to core values and renders them. Language models only interpret text and photos, and chat.
+* Places: search a name such as your gym or office. iOS region monitoring reports arrive and leave. No route is recorded.
+* Gym visit of 20 minutes or more becomes a strength workout.
+* Health wakes the app when a workout or sleep night arrives. It imports and removes duplicates.
+* Meal reminders move to the median time you ate that meal over the last 21 days, after 3 logs.
+* Calorie target: Mifflin St Jeor, activity multiplier, capped deficit. Protein default is 1.8 g per kg.
+* Everything calorie related is an estimate and is labelled as one.
 
-Widget data flow: the app publishes a small snapshot into an App Group. The widget only reads it. Water and energy button taps are queued there and turned into normal records the next time the app opens, so the widget never touches the database. Widgets open the app through `resetai://` links that name one of five fixed screens and carry no data; anything else is ignored.
+Full internals are in `BUILD.md` on disk. It is not tracked in git.
 
-Model deviations from the spec list: `WorkSession` and `UniversitySession` are one `TrackedSession` with a category. `EnergyCheckIn` and `FatigueCheckIn` are one `CheckIn` with a kind. `NutritionEstimate` is the `Nutrition` value inside each `FoodItem`. `DailySummary` is computed on demand so it never goes stale.
+## Install
 
-## 3. Open in Xcode
+Needs Xcode 16 or newer and an iPhone running iOS 17 or newer.
 
-Needs Xcode 16 or newer on a Mac.
-
-```
+```sh
 open RESET.xcodeproj
 ```
 
 1. Select the RESET target, Signing and Capabilities, choose your Team.
 2. Change the bundle identifier to something unique.
-3. Confirm the HealthKit capability is present. The entitlement file is `RESET/RESET.entitlements`.
-   Add the App Groups capability to BOTH the RESET and RESETWidgets targets with the group `group.com.reset.ai`. If you change the bundle id, change the group in `Shared/WidgetShared.swift` and in both entitlement files, and set the widget bundle id to `<app id>.widgets`. Without it the app works and widgets show "Open RE:SET".
-   To add a Lock Screen widget: touch and hold the Lock Screen, tap Customize, tap the widget area, then choose RE:SET.
-4. Confirm Background Modes shows Location updates and Background fetch.
-5. Add an app icon in an asset catalog. None is included.
-6. Build for an iPhone or the simulator.
+3. Add the App Groups capability to both RESET and RESETWidgets with `group.com.reset.ai`. If you change the id, change it in `Shared/WidgetShared.swift` and both entitlement files.
+4. Confirm HealthKit and Background Modes (Location updates, Background fetch).
+5. Run on a simulator or a connected iPhone.
 
-The project file is hand written and untested. If Xcode rejects it, create a new iOS App project named RESET (SwiftUI, SwiftData off), delete its generated sources, drag the `RESET` folder in, add `ResetCore` as a local package, and copy `Info.plist` keys and the entitlements across.
+Geofence arrivals, Health data and the camera need a real iPhone. A free Apple ID works and expires after seven days.
 
-Core tests without Xcode:
+## Test
 
-```
-scripts/test-core.sh
+```sh
+cd ResetCore
+xcodebuild test -scheme ResetCore -destination 'platform=macOS'
 ```
 
-With Xcode: `cd ResetCore && swift test`. The widget queue and link tests live in `scripts/widget-tests` and run only through `scripts/test-core.sh`.
+Backend proxy tests, if you use it: `cd backend && uv run pytest`.
 
-## 4. Location permissions
+## AI setup
 
-Usage strings are in `RESET/Info.plist`. Flow: open Today, Settings, Places and location, add a place by tapping the map or using the current location. The app asks for While Using first, then Always when a place is saved. Always is what lets iOS wake the app for arrivals.
+AI is off until you allow it. Open Settings, AI and data sources, pick a provider, add your key, then turn on "Allow sending". Keys are stored in the iOS Keychain on the phone.
 
-* Denied or restricted: the Places screen explains and offers Open Settings. Manual timer and editing keep working.
-* Location Services off: shown on the same screen.
-* Only region monitoring is used. No continuous GPS, no route history. Place events are pruned after 30 days.
+* Anthropic: default model `claude-haiku-5-5`, editable.
+* OpenAI or compatible: you enter the model name. It must accept images.
+* Proxy: your own https server holds the key. See `backend/`.
 
-## 5. HealthKit
-
-Entitlement and usage strings are included. In the Activity tab press Connect Apple Health. The app reads steps, walking and running distance, workouts, sleep and body mass. It writes only walks you time in the app.
-
-* Health denied: steps fall back to the iPhone motion sensor. Sleep stays manual.
-* Health does not reveal which types you denied. If a card shows no data, check Settings, Health, Data Access.
-* HealthKit is unavailable on iPad and some simulators.
-
-## 6. Notifications
-
-Allow them in Settings, Reminders, or when first prompted. Nine categories, each with its own switch: water, meals, bedtime, wake, late caffeine, movement, walk, workout prep, check-in. Water, meals, bedtime and caffeine are on by default. The rest are off.
-
-* Water and meal notifications have actions: Log 250 ml, Snooze, Not hungry, Eating later.
-* Reminders stay inside waking hours, keep minimum gaps, and are not repeated when missed.
-* "Wake up" is a notification, not an alarm. Keep your alarm app.
-* Denied permission: Settings explains and links to iOS Settings.
-
-## 7. AI credentials
-
-Open Settings, AI and data sources. Keys go into the iOS Keychain on the phone. Nothing is stored in source, the bundle or UserDefaults.
-
-Pick one of four providers. Each keeps its own key and model, so you can switch freely. Save and test connection sends one tiny request and reports problems in plain words.
-
-* Anthropic: key plus model. Default model id `claude-sonnet-5-5`, editable. Uses the Messages API.
-* OpenAI: key plus a model name you choose. No default is supplied, because OpenAI model names change and the model must accept images and tools. The app sends `max_completion_tokens` (OpenAI deprecated `max_tokens`). Some reasoning models reject function tools; if the coach or Test fails, try a non reasoning model.
-* Other OpenAI compatible (xAI and similar): base URL, key, model. Sends `max_tokens`. xAI documents a `/v1/responses` API on its main reference page, which this option does not use. Confirm the endpoint, model and image support with your provider.
-* RE:SET backend proxy: URL and token. Recommended for anything beyond personal testing, because the provider key then stays on your server. The server supports Anthropic and OpenAI.
-
-Backend setup:
-
-```
+```sh
 cd backend
-cp .env.example .env     # set AI_PROVIDER, the provider key and model, and PROXY_TOKENS
+cp .env.example .env     # set AI_PROVIDER, the provider key, model and PROXY_TOKENS
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-The server reads `backend/.env`, then the repository root `.env`, and never prints values. It accepts the common misspelling `ANTROPIC_API_KEY` with a warning. For OpenAI set `OPENAI_API_KEY` and `OPENAI_MODEL`. `PROXY_TOKENS` is required, otherwise the server refuses requests.
+Serve the proxy over https. The app refuses plain http.
 
-Serve it over HTTPS (reverse proxy or a platform that terminates TLS). The app accepts http only for testing.
+Without AI, barcode scan, USDA search results and local coach answers still work.
 
-Without any key, manual logging, barcode, USDA search and all non AI features work. The coach answers simple data questions locally (water, calories left, protein, steps, work hours, bedtime).
+## Data and privacy
 
-## 8. Nutrition data
+* All data stays on the iPhone. A readable CSV and JSON copy is kept in the Files app under RE:SET AI, RE-SET Data.
+* No analytics, ads or tracking.
+* AI receives only the food text or photo you submit, your coach questions and daily totals the coach looks up, and only after you give permission. Health, location and places are never sent.
+* Food search sends search words to USDA FoodData Central. Barcodes go to Open Food Facts.
+* Delete or export data in Settings, Privacy and data.
+* Privacy Policy and Terms of Use are in the app.
 
-* USDA FoodData Central: text search and AI lookups. Free key from fdc.nal.usda.gov, added in Settings. Without one the shared `DEMO_KEY` is used, limited to about 30 requests per hour per IP. Public domain data.
-* Open Food Facts: barcode lookup through API v2, and text search through Search-a-licious (search.openfoodfacts.org), because API v2 has no full text search. Products without nutrition data are skipped. Reads are rate limited. Data licence ODbL, attribution shown in the app. Branded AI items check this database first.
-* AI estimates are used only when no database match exists, and are labeled "AI estimate, not from a database".
-* Branded product values should be checked against the label. Cafeteria portions are always estimates.
+## Project layout
 
-## 9. Install on an iPhone
+```
+RESET/            iOS app target
+  App/            entry point, tab router
+  Features/       Today, Activity, Nutrition, Insights, Coach,
+                  Sleep, Time, Recovery, Settings, Onboarding
+  Services/       location, Health, notifications, Keychain, AI config
+  Models/         SwiftData models
+  Intents/        Siri and Shortcuts
+RESETWidgets/     widget extension
+Shared/           code compiled into app and widgets
+ResetCore/        Swift package, pure logic, unit tested
+backend/          optional FastAPI proxy
+scripts/          fallback test and type check scripts
+```
 
-1. Connect the iPhone, enable Developer Mode (Settings, Privacy and Security).
-2. In Xcode choose the device, then Run.
-3. Trust the developer profile in Settings, General, VPN and Device Management if asked.
-4. A free Apple ID works but the install expires after seven days.
+Rule: logic lives in `ResetCore`. Views call it. `ResetCore` has no UI, SwiftData or iOS dependency, so every rule is tested on a Mac.
 
-## 10. Works offline
+## Limits
 
-Logging food manually, saved meals, recents, water, caffeine, sleep, check-ins, weights, workouts, recovery, timeline, insights, export, work and university tracking, geofence events, step reading, meal and water reminders already scheduled, coach answers to simple data questions.
+* Not yet run on a physical iPhone. Automatic features are unproven on hardware.
+* iOS can delay or miss location events. Needs Always location and Background App Refresh. Times are estimates, not proof of hours worked.
+* The phone cannot detect sleep. It needs an Apple Watch or another app writing to Health.
+* Notifications are scheduled ahead and cannot show live numbers.
+* Allergy checks match names only. Always read the label.
+* Not medical advice. Estimates only.
 
-## 11. Needs external credentials or services
+## Before release
 
-* AI food description, food photo analysis, coach conversation: provider key or proxy.
-* USDA search at a reasonable rate: free USDA key.
-* Barcode lookup and product text search: internet, no key.
-* Proxy: your own server and shared token.
+* Fill `publisher`, `contactEmail` and `governingLaw` in `RESET/Features/Settings/LegalView.swift`.
+* Host the Privacy Policy on a public URL.
+* Have a lawyer review the legal text.
+* Replace the placeholder bundle id.
 
-## 12. Needs a physical device and permissions
+## Credits
 
-* Geofence arrivals and departures: real iPhone, Always location.
-* Steps and sleep import: Health permission, real iPhone for useful data.
-* Camera meal photos, receipt photos and barcode scanning: real iPhone, camera permission. The simulator has no camera.
-* Notifications: permission. Delivery timing is easiest to judge on a device.
-* Siri, Shortcuts and the Home and Lock Screen widgets: device with the app installed and the App Groups capability enabled.
-
-Nothing in this repository has been verified on a physical iPhone.
-
-## 13. iOS background limitations
-
-* Region monitoring events can arrive late, be coalesced, or be missed, for example after a reboot, low power mode, or if Always permission is revoked. Times are estimates. Missed exits become "Needs review" sessions, never silently dropped.
-* Being inside a place does not prove you were working. Detected time is labeled an estimate until you confirm or edit it.
-* iOS runs no app code when a notification fires. The app plans the next day or two ahead, up to 60 requests, and replans when opened, after logging, and during best effort background refresh. Refresh timing is up to iOS.
-* Phone step counts miss activity when the phone is not carried.
-* The phone cannot detect sleep. Sleep is what you enter or what other devices write to Health.
-* Force quitting the app stops background launches until it is opened again.
-
-## 14. Remaining setup and known gaps
-
-Setup:
-
-* Open in Xcode, set Team and bundle id, add an app icon, build, fix any errors.
-* Add AI key or proxy. Add a free USDA key.
-* Add places, grant Always location, connect Health, allow notifications.
-
-Not implemented:
-
-* Share sheet extension target. The Shortcuts route (Add purchase text with Show in Share Sheet) covers sharing text without a separate extension.
-* Phone based sleep detection. Deliberately omitted because it is unreliable.
-* Meal ideas are a fixed catalog with typical portions, not personalised recipes. Ask the coach with AI on for something freer.
-* Automated UI tests. Only core and backend logic is tested.
-
-Known risks:
-
-* Hand written project file, now with two targets (app and widget). Untested: SwiftData macros, `CLMonitor` event handling, Health queries, notification actions, widget refresh and App Group sharing on real hardware. Whether Lock Screen buttons run while the phone is locked, or ask you to unlock first, is decided by iOS and was not checked.
-* AI JSON replies are validated strictly, but real model behavior was not observed. Expect prompt tuning.
-* Caffeine values in the drinks catalog come from public secondary sources and are marked "typical, check your can".
-
-Not medical advice. Calories, energy use, recovery, sleep and food photo results are estimates. Seek medical care for chest pain, fainting, severe palpitations or breathing trouble.
+Nutrition data: USDA FoodData Central (public domain) and Open Food Facts (ODbL).
