@@ -27,6 +27,9 @@ final class UserProfile {
     /// Calendar weekday numbers, 1 = Sunday.
     var workDays: [Int]
     var uniDays: [Int]
+    /// Hours aimed for on each weekday, index 0 = Sunday. 0 means a day off. Days differ, so there is no single "8 hours".
+    var workGoalHours: [Double] = [0, 0, 0, 0, 0, 0, 0]
+    var uniGoalHours: [Double] = [0, 0, 0, 0, 0, 0, 0]
     var gymDaysPerWeek: Int
     var equipment: Equipment
     var trainingLevelRaw: String
@@ -50,12 +53,26 @@ final class UserProfile {
     var aiProviderRaw: String
     var aiModel: String
 
+    /// Goal in seconds for a category on a given day, nil when that day is off.
+    func goalSeconds(_ category: SessionCategory, on day: Date = .now) -> TimeInterval? {
+        let hours = category == .university ? uniGoalHours : workGoalHours
+        let i = Calendar.current.component(.weekday, from: day) - 1
+        guard hours.indices.contains(i), hours[i] > 0 else { return nil }
+        return hours[i] * 3600
+    }
+
+    /// Keeps the weekday lists other features read in step with the per-day goals.
+    func syncDays() {
+        workDays = workGoalHours.indices.filter { workGoalHours[$0] > 0 }.map { $0 + 1 }
+        uniDays = uniGoalHours.indices.filter { uniGoalHours[$0] > 0 }.map { $0 + 1 }
+    }
+
     init() {
         id = UUID(); createdAt = .now; onboardingDone = false
         heightCm = 188; weightKg = 103
         goal = .fatLossKeepMuscle; activityLevel = .moderate; units = .metric
         wakeMinute = 7 * 60; bedMinute = 23 * 60
-        workDays = [2, 3, 4, 5, 6]; uniDays = []
+        workDays = []; uniDays = []
         gymDaysPerWeek = 3; equipment = .gym; trainingLevelRaw = "returning"
         dietaryPreferences = []; allergies = []; caffeineHabit = ""
         calorieCountingEnabled = true
@@ -63,7 +80,7 @@ final class UserProfile {
         fluidRestriction = false; quickWaterMl = [150, 250, 500]
         sleepTargetHours = 8; windDownMinutes = 45
         mealPattern = [.breakfast, .lunch, .dinner]
-        autoSaveFood = false; keepConversationHistory = true
+        autoSaveFood = true; keepConversationHistory = true
         aiProviderRaw = "anthropic"; aiModel = "claude-sonnet-5-5"
     }
 }

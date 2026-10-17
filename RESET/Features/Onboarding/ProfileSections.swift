@@ -100,75 +100,34 @@ struct GoalSection: View {
 struct ScheduleSection: View {
     @Bindable var profile: UserProfile
 
-    private var hasWork: Binding<Bool> {
-        Binding(get: { profile.workStartMinute != nil },
-                set: { on in
-                    profile.workStartMinute = on ? (profile.workStartMinute ?? 9 * 60) : nil
-                    profile.workEndMinute = on ? (profile.workEndMinute ?? 17 * 60) : nil
-                })
-    }
-    private var hasUni: Binding<Bool> {
-        Binding(get: { profile.uniStartMinute != nil },
-                set: { on in
-                    profile.uniStartMinute = on ? (profile.uniStartMinute ?? 17 * 60 + 30) : nil
-                    profile.uniEndMinute = on ? (profile.uniEndMinute ?? 20 * 60) : nil
-                    profile.uniDays = on && profile.uniDays.isEmpty ? [2, 4] : profile.uniDays
-                })
-    }
-
     var body: some View {
         Section("Sleep") {
             DatePicker("Usually wake up", selection: $profile.wakeMinute.asTimeOfDay(), displayedComponents: .hourAndMinute)
             DatePicker("Usually go to bed", selection: $profile.bedMinute.asTimeOfDay(), displayedComponents: .hourAndMinute)
         }
-        Section("Work") {
-            Toggle("I work set hours", isOn: hasWork)
-            if profile.workStartMinute != nil {
-                DatePicker("Start", selection: Binding($profile.workStartMinute, 9 * 60).asTimeOfDay(), displayedComponents: .hourAndMinute)
-                DatePicker("End", selection: Binding($profile.workEndMinute, 17 * 60).asTimeOfDay(), displayedComponents: .hourAndMinute)
-                WeekdayPicker(days: $profile.workDays)
-            }
-        }
-        Section("University, optional") {
-            Toggle("I attend university", isOn: hasUni)
-            if profile.uniStartMinute != nil {
-                DatePicker("Start", selection: Binding($profile.uniStartMinute, 17 * 60).asTimeOfDay(), displayedComponents: .hourAndMinute)
-                DatePicker("End", selection: Binding($profile.uniEndMinute, 20 * 60).asTimeOfDay(), displayedComponents: .hourAndMinute)
-                WeekdayPicker(days: $profile.uniDays)
-            }
-        }
+        GoalHoursSection(title: "Work", hours: $profile.workGoalHours, onChange: profile.syncDays)
+        GoalHoursSection(title: "University", hours: $profile.uniGoalHours, onChange: profile.syncDays)
     }
 }
 
-private extension Binding where Value == Int {
-    /// Non-optional view of an optional Int binding.
-    init(_ source: Binding<Int?>, _ fallback: Int) {
-        self.init(get: { source.wrappedValue ?? fallback }, set: { source.wrappedValue = $0 })
-    }
-}
-
-struct WeekdayPicker: View {
-    @Binding var days: [Int]
-    private let symbols = Calendar.current.veryShortWeekdaySymbols
+/// Hours per weekday. Each day has its own goal, 0 is a day off. Places tell the app when you are there.
+struct GoalHoursSection: View {
+    let title: String
+    @Binding var hours: [Double]
+    var onChange: () -> Void
 
     var body: some View {
-        HStack {
-            ForEach(1...7, id: \.self) { d in
-                let on = days.contains(d)
-                Button {
-                    if on { days.removeAll { $0 == d } } else { days.append(d) }
-                } label: {
-                    Text(symbols[d - 1])
-                        .font(.subheadline.weight(.semibold))
-                        .frame(width: 34, height: 34)
-                        .background(on ? Theme.accent : Color.primary.opacity(0.1), in: Circle())
-                        .foregroundStyle(on ? Color.black : Color.primary)
+        Section {
+            ForEach(Array(Calendar.current.weekdaySymbols.enumerated()), id: \.offset) { i, name in
+                Stepper(value: Binding(get: { hours[i] }, set: { hours[i] = $0; onChange() }), in: 0...16, step: 0.5) {
+                    HStack {
+                        Text(name)
+                        Spacer()
+                        Text(hours[i] == 0 ? "Off" : "\(hours[i].formatted()) h").foregroundStyle(Theme.secondaryText).monospacedDigit()
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Calendar.current.weekdaySymbols[d - 1])
-                .accessibilityAddTraits(on ? .isSelected : [])
             }
-        }
+        } header: { Text(title) }
     }
 }
 
