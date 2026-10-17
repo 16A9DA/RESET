@@ -109,18 +109,48 @@ public enum MealSuggester {
         idea("Vegetable soup with an egg and bread", [.home, .cafeteria], [.lunch, .dinner], tags: ["egg", "gluten"], ing: ["vegetables", "egg", "bread"],
              prep: 15, kcal: 360, p: 18, c: 40, f: 12, veg: true, tip: "Light option when you are not very hungry."),
     ]
-
+        
     // MARK: Filtering
 
-    private static let dietRules: [(keys: [String], excludes: (MealIdea) -> Bool)] = [
-        (["vegan"], { !$0.vegan }),
-        (["vegetarian"], { !$0.vegetarian }),
-        (["no pork", "pork free", "halal"], { $0.tags.contains("pork") }),
-        (["gluten"], { $0.tags.contains("gluten") }),
-        (["dairy", "lactose"], { $0.tags.contains("dairy") }),
-        (["fish", "pescatarian"], { _ in false }),
-        (["no fish"], { $0.tags.contains("fish") }),
-        (["no egg", "egg free"], { $0.tags.contains("egg") }),
+    private enum DietExclusion: Sendable {
+        case notVegan, notVegetarian, pork, gluten, dairy, none, fish, egg
+
+        func excludes(_ idea: MealIdea) -> Bool {
+            switch self {
+            case .notVegan:
+                return !idea.vegan
+            case .notVegetarian:
+                return !idea.vegetarian
+            case .pork:
+                return idea.tags.contains("pork")
+            case .gluten:
+                return idea.tags.contains("gluten")
+            case .dairy:
+                return idea.tags.contains("dairy")
+            case .none:
+                return false
+            case .fish:
+                return idea.tags.contains("fish")
+            case .egg:
+                return idea.tags.contains("egg")
+            }
+        }
+    }
+
+    private struct DietRule: Sendable {
+        let keys: [String]
+        let exclusion: DietExclusion
+    }
+
+    private static let dietRules: [DietRule] = [
+        DietRule(keys: ["vegan"], exclusion: .notVegan),
+        DietRule(keys: ["vegetarian"], exclusion: .notVegetarian),
+        DietRule(keys: ["no pork", "pork free", "halal"], exclusion: .pork),
+        DietRule(keys: ["gluten"], exclusion: .gluten),
+        DietRule(keys: ["dairy", "lactose"], exclusion: .dairy),
+        DietRule(keys: ["fish", "pescatarian"], exclusion: .none),
+        DietRule(keys: ["no fish"], exclusion: .fish),
+        DietRule(keys: ["no egg", "egg free"], exclusion: .egg),
     ]
 
     /// Conservative: a free text allergy word that appears anywhere in the name, tags or ingredients removes the meal.
@@ -137,10 +167,16 @@ public enum MealSuggester {
 
     static func excludedByDiet(_ i: MealIdea, prefs: [String]) -> Bool {
         let p = prefs.map { $0.lowercased() }
-        for rule in dietRules where rule.keys.contains(where: { k in p.contains { $0.contains(k) } }) {
-            if rule.excludes(i) { return true }
+
+        for rule in dietRules where rule.keys.contains(where: { k in
+            p.contains { $0.contains(k) }
+        }) {
+            if rule.exclusion.excludes(i) {
+                return true
+            }
         }
-        // "no pork" style with a trailing word, for example "no pork" in any preference
+
+        // "No pork" style preferences with additional words are supported.
         return false
     }
 

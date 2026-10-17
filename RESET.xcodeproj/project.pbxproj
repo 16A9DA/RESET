@@ -3,12 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000000000000000000051 /* RESETWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000052 /* RESETWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A10000000000000000000001 /* ResetCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000020 /* ResetCore */; };
+		A10000000000000000000051 /* RESETWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000052 /* RESETWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,52 +36,32 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		A10000000000000000000052 /* RESETWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RESETWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000002 /* RESET.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RESET.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000003 /* ResetCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = ResetCore; sourceTree = "<group>"; };
+		A10000000000000000000052 /* RESETWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RESETWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		A10000000000000000000004 /* Exceptions for "RESET" folder in "RESET" target */ = {
+		A10000000000000000000004 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				RESET.entitlements,
 			);
 			target = A10000000000000000000010 /* RESET */;
 		};
-		A10000000000000000000069 /* Exceptions for "RESETWidgets" folder in "RESETWidgets" target */ = {
+		A10000000000000000000069 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				RESETWidgets.entitlements,
 			);
 			target = A10000000000000000000060 /* RESETWidgets */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A10000000000000000000005 /* RESET */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				A10000000000000000000004 /* Exceptions for "RESET" folder in "RESET" target */,
-			);
-			path = RESET;
-			sourceTree = "<group>";
-		};
-		A10000000000000000000067 /* RESETWidgets */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				A10000000000000000000069 /* Exceptions for "RESETWidgets" folder in "RESETWidgets" target */,
-			);
-			path = RESETWidgets;
-			sourceTree = "<group>";
-		};
-		A10000000000000000000068 /* Shared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Shared;
-			sourceTree = "<group>";
-		};
+		A10000000000000000000005 /* RESET */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (A10000000000000000000004 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = RESET; sourceTree = "<group>"; };
+		A10000000000000000000067 /* RESETWidgets */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (A10000000000000000000069 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = RESETWidgets; sourceTree = "<group>"; };
+		A10000000000000000000068 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -295,10 +275,21 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RESET/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET AI";
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to photograph meals and scan food barcodes.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RE:SET can save walks you record in the app to Apple Health.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave work or university so it can suggest time entries. iOS may delay these events, so you can always correct times manually.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RE:SET uses your location to save places such as work and university, and to show them on the map.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Not used for recording. Voice input uses the iOS keyboard dictation.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "RE:SET reads step counts from your iPhone when Apple Health access is not granted.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a meal photo to estimate its nutrition.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.reset.ai;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -319,10 +310,21 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RESET/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET AI";
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to photograph meals and scan food barcodes.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RE:SET can save walks you record in the app to Apple Health.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave work or university so it can suggest time entries. iOS may delay these events, so you can always correct times manually.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RE:SET uses your location to save places such as work and university, and to show them on the map.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Not used for recording. Voice input uses the iOS keyboard dictation.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "RE:SET reads step counts from your iPhone when Apple Health access is not granted.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a meal photo to estimate its nutrition.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.reset.ai;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -344,7 +346,11 @@
 				INFOPLIST_FILE = RESETWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET Widgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.reset.ai.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -367,7 +373,11 @@
 				INFOPLIST_FILE = RESETWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET Widgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.reset.ai.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -382,20 +392,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A10000000000000000000015 /* Build configuration list for PBXProject "RESET" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A10000000000000000000030 /* Debug */,
-				A10000000000000000000031 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		A10000000000000000000011 /* Build configuration list for PBXNativeTarget "RESET" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000032 /* Debug */,
 				A10000000000000000000033 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000015 /* Build configuration list for PBXProject "RESET" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000030 /* Debug */,
+				A10000000000000000000031 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
