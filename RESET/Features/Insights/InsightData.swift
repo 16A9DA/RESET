@@ -38,7 +38,8 @@ enum InsightData {
             out.append(InsightDay(date: d, sleepHours: sleep?.hours, sleepQuality: sleep?.quality.map(Double.init),
                                   energy: energy.isEmpty ? nil : energy.reduce(0, +) / Double(energy.count),
                                   fatigue: fatigue.isEmpty ? nil : fatigue.max(), lateCaffeine: late, walkMinutes: walk,
-                                  trained: trained, firstMealMinute: firstMeal, isUniversityDay: isUni))
+                                  trained: trained, firstMealMinute: firstMeal, isUniversityDay: isUni,
+                                  workHours: SessionMath.totals(sessions.map(\.value), category: .work, in: w, now: .now).total / 3600))
         }
         return out
     }

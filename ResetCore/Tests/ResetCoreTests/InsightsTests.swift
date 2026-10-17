@@ -61,8 +61,8 @@ private func day(_ i: Int, sleep: Double? = nil, energy: Double? = nil, quality:
     #expect(InsightEngine.mealTiming(uni + other).state == .pattern)
 }
 
-@Test func allReturnsFiveInsights() {
-    #expect(InsightEngine.all([], sleepTarget: 8).count == 5)
+@Test func allReturnsSevenInsights() {
+    #expect(InsightEngine.all([], sleepTarget: 8).count == 7)
 }
 
 @Test func csvEscapingAndFormulaGuard() {

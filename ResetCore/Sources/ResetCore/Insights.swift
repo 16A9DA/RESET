@@ -14,13 +14,15 @@ public struct InsightDay: Sendable {
     public var trained: Bool
     public var firstMealMinute: Double?
     public var isUniversityDay: Bool
+    /// Hours at work from place detection, 0 when none.
+    public var workHours: Double
 
     public init(date: Date, sleepHours: Double? = nil, sleepQuality: Double? = nil, energy: Double? = nil, fatigue: Double? = nil,
                 lateCaffeine: Bool? = nil, walkMinutes: Double = 0, trained: Bool = false, firstMealMinute: Double? = nil,
-                isUniversityDay: Bool = false) {
+                isUniversityDay: Bool = false, workHours: Double = 0) {
         self.date = date; self.sleepHours = sleepHours; self.sleepQuality = sleepQuality; self.energy = energy
         self.fatigue = fatigue; self.lateCaffeine = lateCaffeine; self.walkMinutes = walkMinutes; self.trained = trained
-        self.firstMealMinute = firstMealMinute; self.isUniversityDay = isUniversityDay
+        self.firstMealMinute = firstMealMinute; self.isUniversityDay = isUniversityDay; self.workHours = workHours
     }
 }
 
@@ -54,7 +56,40 @@ public enum InsightEngine {
     private static func f(_ v: Double) -> String { String(format: "%.1f", v) }
 
     public static func all(_ days: [InsightDay], sleepTarget: Double) -> [Insight] {
-        [sleepVsEnergy(days, target: sleepTarget), caffeineVsSleep(days), walkVsEnergy(days), fatigueVsTraining(days), mealTiming(days)]
+        [workVsSleep(days), gymVsSleep(days), sleepVsEnergy(days, target: sleepTarget), caffeineVsSleep(days), walkVsEnergy(days), fatigueVsTraining(days), mealTiming(days)]
+    }
+
+    /// Sleep on the night after each day, paired with a yes/no trait of that day. Needs consecutive days.
+    private static func nextNight(_ days: [InsightDay], trait: (InsightDay) -> Bool?) -> Cmp {
+        let sorted = days.sorted { $0.date < $1.date }
+        var yes: [Double] = [], no: [Double] = []
+        for (i, d) in sorted.enumerated() where i + 1 < sorted.count {
+            guard let t = trait(d), let h = sorted[i + 1].sleepHours, sorted[i + 1].date.timeIntervalSince(d.date) < 36 * 3600 else { continue }
+            if t { yes.append(h) } else { no.append(h) }
+        }
+        return Cmp(a: yes, b: no)
+    }
+
+    public static func workVsSleep(_ days: [InsightDay]) -> Insight {
+        let id = "workSleep", title = "Long work days"
+        let c = nextNight(days) { $0.workHours > 0 ? $0.workHours >= 9 : nil }
+        guard c.enough else { return collecting(id, title, need: "Needs \(minPerGroup) days of 9 hours or more and \(minPerGroup) shorter, with sleep.", have: c.a.count + c.b.count) }
+        let d = c.meanA - c.meanB
+        if abs(d) < 0.4 { return Insight(id: id, title: title, text: "Sleep after long work days matches the rest (\(f(c.meanA)) h vs \(f(c.meanB)) h).", state: .noDifference, observations: c.a.count + c.b.count) }
+        return Insight(id: id, title: title,
+                       text: "After \(c.a.count) work days of 9 h or more you slept \(f(c.meanA)) h, against \(f(c.meanB)) h otherwise. \(d < 0 ? "Long days cost you sleep. Protect an earlier night after them." : "You sleep longer after long days.")",
+                       state: .pattern, observations: c.a.count + c.b.count)
+    }
+
+    public static func gymVsSleep(_ days: [InsightDay]) -> Insight {
+        let id = "gymSleep", title = "Training and sleep"
+        let c = nextNight(days) { $0.trained }
+        guard c.enough else { return collecting(id, title, need: "Needs \(minPerGroup) training and \(minPerGroup) rest days, with sleep.", have: c.a.count + c.b.count) }
+        let d = c.meanA - c.meanB
+        if abs(d) < 0.4 { return Insight(id: id, title: title, text: "Sleep is the same after training and rest days (\(f(c.meanA)) h vs \(f(c.meanB)) h).", state: .noDifference, observations: c.a.count + c.b.count) }
+        return Insight(id: id, title: title,
+                       text: "You sleep \(f(c.meanA)) h after training days and \(f(c.meanB)) h after rest days. \(d > 0 ? "Training helps your sleep." : "Training days cost you sleep. Try finishing earlier.")",
+                       state: .pattern, observations: c.a.count + c.b.count)
     }
 
     public static func sleepVsEnergy(_ days: [InsightDay], target: Double) -> Insight {

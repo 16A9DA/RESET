@@ -14,60 +14,70 @@ struct InsightsView: View {
     @Query private var acts: [ActivityRecord]
     @Query private var sessions: [TrackedSession]
     @Query(sort: \WeightRecord.at) private var weights: [WeightRecord]
-    @State private var exportURLs: [URL] = []
-    @State private var exportError: String?
     @State private var weightText = ""
-    @State private var applied = false
 
     private var profile: UserProfile? { profiles.first }
+
 
     var body: some View {
         let _ = (sleeps.count, checks.count, meals.count, caffeine.count, acts.count, sessions.count)
         let days = InsightData.days(context: context, profile: profile)
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
-                    weekCard(days)
+                VStack(spacing: 12) {
+                    weekHero(days)
+                    standout(days)
                     workChart
                     weightCard
-                    patterns(days)
-                    exportCard
                 }.padding()
             }
-            .background(Theme.background)
+            .background(GlassBackdrop())
             .navigationTitle("Insights")
         }
     }
 
     // MARK: Week
 
-    private func weekCard(_ days: [InsightDay]) -> some View {
-        let week = Array(days.suffix(7))
-        let sleep = week.compactMap(\.sleepHours)
-        let steps = health.week.map(\.steps)
-        let workouts = week.filter(\.trained).count
-        let daysWithFood = week.filter { $0.firstMealMinute != nil }.count
-        return Card(title: "Last 7 days") {
-            row("Sleep", sleep.isEmpty ? "None" : String(format: "%.1f h avg", sleep.reduce(0, +) / Double(sleep.count)))
-            row("Steps", steps.isEmpty ? "None" : "\((steps.reduce(0, +) / steps.count).formatted()) a day")
-            row("Workouts", "\(workouts)")
-            row("Days with food logged", "\(daysWithFood) of 7")
+    private func avg(_ v: [Double]) -> Double? { v.isEmpty ? nil : v.reduce(0, +) / Double(v.count) }
+
+    private func weekHero(_ days: [InsightDay]) -> some View {
+        let thisWeek = Array(days.suffix(7)), lastWeek = Array(days.dropLast(7).suffix(7))
+        return Card(title: "This week") {
+            HStack(alignment: .top, spacing: 12) {
+                stat("Sleep", avg(thisWeek.compactMap(\.sleepHours)), avg(lastWeek.compactMap(\.sleepHours)), unit: "h", good: .up)
+                stat("Work", thisWeek.contains { $0.workHours > 0 } ? thisWeek.map(\.workHours).reduce(0, +) : nil,
+                     lastWeek.contains { $0.workHours > 0 } ? lastWeek.map(\.workHours).reduce(0, +) : nil, unit: "h", good: .none)
+                stat("Workouts", Double(thisWeek.filter(\.trained).count), Double(lastWeek.filter(\.trained).count), unit: "", good: .up)
+            }
         }
     }
 
-    private var weekCalories: String {
-        let cal = Calendar.current
-        let week = Date.now.addingTimeInterval(-7 * 86_400)
-        var perDay: [Date: Double] = [:]
-        for m in meals where m.at >= week { perDay[cal.startOfDay(for: m.at), default: 0] += m.nutrition.kcal }
-        // Days with one small entry are likely incomplete logging, so they are left out of the average.
-        let full = perDay.values.filter { $0 >= 800 }
-        guard !full.isEmpty else { return "Not enough complete days" }
-        return "\(Int((full.reduce(0, +) / Double(full.count)).rounded())) kcal average on \(full.count) well-logged day(s)"
+    private enum Good { case up, none }
+
+    private func stat(_ title: String, _ now: Double?, _ before: Double?, unit: String, good: Good) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(now.map { $0.formatted(.number.precision(.fractionLength(0...1))) + (unit.isEmpty ? "" : " " + unit) } ?? "None")
+                .font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(title).font(.caption).foregroundStyle(Theme.secondaryText)
+            if let now, let before, abs(now - before) >= 0.1 {
+                let up = now > before
+                Label((now - before).magnitude.formatted(.number.precision(.fractionLength(0...1))), systemImage: up ? "arrow.up" : "arrow.down")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(good == .none ? Theme.secondaryText : (up ? Theme.good : Theme.warn))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func row(_ k: String, _ v: String) -> some View {
-        HStack { Text(k); Spacer(); Text(v).foregroundStyle(Theme.secondaryText).multilineTextAlignment(.trailing) }.font(.subheadline)
+    @ViewBuilder private func standout(_ days: [InsightDay]) -> some View {
+        let found = InsightEngine.all(days, sleepTarget: profile?.sleepTargetHours ?? 8).filter { $0.state == .pattern }
+        if found.isEmpty {
+            Card { Label("Patterns appear after about two weeks of tracking.", systemImage: "hourglass").font(.subheadline) }
+        } else {
+            ForEach(found) { i in
+                Card(title: i.title) { Text(i.text).font(.subheadline) }
+            }
+        }
     }
 
     @ViewBuilder private var workChart: some View {
@@ -84,6 +94,7 @@ struct InsightsView: View {
             }
         }
     }
+
 
     // MARK: Weight
 
@@ -109,23 +120,7 @@ struct InsightsView: View {
                 TextField(imperial ? "lb" : "kg", text: $weightText).keyboardType(.decimalPad)
                 Button("Log weight", action: logWeight).disabled(Double(weightText.replacingOccurrences(of: ",", with: ".")) == nil)
             }
-            if let m = suggestedMaintenance(pts) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Your data suggests maintenance is nearer \(Int(m.rounded())) kcal.").font(.footnote)
-                    Button(applied ? "Applied" : "Use this as my maintenance") { profile?.maintenanceOverrideKcal = m; applied = true }.disabled(applied)
-                }
-            }
         }
-    }
-
-    private func suggestedMaintenance(_ pts: [WeightPoint]) -> Double? {
-        guard let first = pts.map(\.at).min() else { return nil }
-        let cal = Calendar.current
-        var perDay: [Date: Double] = [:]
-        for m in meals where m.at >= first { perDay[cal.startOfDay(for: m.at), default: 0] += m.nutrition.kcal }
-        let full = perDay.values.filter { $0 >= 800 }
-        guard full.count >= 10 else { return nil }
-        return WeightTrend.impliedMaintenance(avgIntakeKcal: full.reduce(0, +) / Double(full.count), points: pts)
     }
 
     private func logWeight() {
@@ -138,31 +133,4 @@ struct InsightsView: View {
         weightText = ""
     }
 
-    // MARK: Patterns
-
-    private func patterns(_ days: [InsightDay]) -> some View {
-        let items = InsightEngine.all(days, sleepTarget: profile?.sleepTargetHours ?? 8).filter { $0.state == .pattern }
-        return VStack(spacing: 10) {
-            ForEach(items) { i in
-                Card(title: i.title) { Text(i.text).font(.subheadline) }
-            }
-            if !items.isEmpty { Text(InsightEngine.cautionNote).font(.caption).foregroundStyle(Theme.secondaryText) }
-        }
-    }
-
-    // MARK: Export
-
-    private var exportCard: some View {
-        Card {
-            if exportURLs.isEmpty {
-                Button("Export my data") {
-                    do { exportURLs = try DataExporter.write(context: context); exportError = nil }
-                    catch { exportError = "Could not create the export: \(error.localizedDescription)" }
-                }
-            } else {
-                ShareLink("Share \(exportURLs.count) files", items: exportURLs)
-            }
-            if let e = exportError { Text(e).font(.footnote).foregroundStyle(Theme.low) }
-        }
-    }
 }

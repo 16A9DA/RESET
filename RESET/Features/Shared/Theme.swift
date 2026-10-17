@@ -13,6 +13,33 @@ enum Theme {
     static let low = Color(red: 1.0, green: 0.45, blue: 0.40)
 }
 
+/// Soft colour behind the glass so it has something to refract.
+struct GlassBackdrop: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        ZStack {
+            Theme.background
+            Circle().fill(Theme.accent.opacity(scheme == .dark ? 0.22 : 0.35)).frame(width: 320).blur(radius: 90).offset(x: -130, y: -260)
+            Circle().fill(Color(red: 0.25, green: 0.45, blue: 1).opacity(scheme == .dark ? 0.28 : 0.2)).frame(width: 360).blur(radius: 100).offset(x: 160, y: 120)
+            Circle().fill(Color(red: 0.7, green: 0.3, blue: 1).opacity(scheme == .dark ? 0.18 : 0.12)).frame(width: 280).blur(radius: 90).offset(x: -120, y: 380)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+extension View {
+    /// Liquid Glass on iOS 26 and later, a frosted material before that.
+    @ViewBuilder func glass(_ radius: CGFloat = 20) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            self.background(.ultraThinMaterial, in: shape).overlay(shape.strokeBorder(Color.white.opacity(0.15)))
+        }
+    }
+}
+
 struct Card<Content: View>: View {
     var title: String?
     @ViewBuilder var content: Content
@@ -29,7 +56,7 @@ struct Card<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .glass(20)
     }
 }
 
