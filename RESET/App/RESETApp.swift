@@ -36,7 +36,7 @@ struct RESETApp: App {
                     await notifier.rebuild(context: container.mainContext)
                 }
                 .onChange(of: phase) { _, new in
-                    if new == .background { Self.scheduleRefresh() }
+                    if new == .background { Self.scheduleRefresh(); DataExporter.syncToFiles(context: container.mainContext) }
                     if new == .active {
                         WidgetBridge.drain(context: container.mainContext)
                         Task {

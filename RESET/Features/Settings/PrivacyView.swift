@@ -26,7 +26,7 @@ struct PrivacyView: View {
             case .location: "Sessions, place events and saved places are removed. Monitoring stops."
             case .food: "Meals, saved meals, water and caffeine records are removed."
             case .chat: "All coach messages are removed."
-            case .everything: "All logs, your profile, API keys and reminders are removed from this iPhone. This can't be undone. Data in Apple Health is not touched."
+            case .everything: "All logs, your profile, API keys, reminders and the copy in Files are removed from this iPhone. This can't be undone. Data in Apple Health is not touched."
             }
         }
     }
@@ -48,13 +48,13 @@ struct PrivacyView: View {
             Section("Health and safety") {
                 text("Calorie, energy use, sleep, recovery and food photo values are estimates. They are not medical advice, and nothing here diagnoses or treats a condition. If you feel unwell, get medical help.")
             }
-            Section("Your data") {
+            Section {
                 if exportURLs.isEmpty {
                     Button("Export my data") { exportURLs = (try? DataExporter.write(context: context)) ?? [] }
                 } else {
                     ShareLink("Share \(exportURLs.count) files", items: exportURLs)
                 }
-            }
+            } header: { Text("Your data") } footer: { Text("A copy is also kept in the Files app under On My iPhone, RE:SET AI, RE-SET Data. It updates when you leave the app.") }
             Section("Delete data") {
                 Button("Delete work and location history", role: .destructive) { confirm = .location }
                 Button("Delete food, water and caffeine logs", role: .destructive) { confirm = .food }
@@ -92,6 +92,7 @@ struct PrivacyView: View {
                     + AIConfig.Kind.allCases.map { "ai.model.\($0.rawValue)" }).forEach { d.removeObject(forKey: $0) }
                 UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
                 try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent("reset-export"))
+                try? FileManager.default.removeItem(at: DataExporter.filesFolder)
             }
             try context.save()
             Task { await tracker.start(context: context); if w != .everything { await notifier.rebuild(context: context) } }

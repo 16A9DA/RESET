@@ -80,10 +80,18 @@ enum DataExporter {
         return out
     }
 
+    /// Copy shown in the Files app under On My iPhone > RE:SET AI. Rewritten whenever the app goes to the background.
+    static var filesFolder: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("RE-SET Data", isDirectory: true)
+    }
+
+    @MainActor
+    static func syncToFiles(context: ModelContext) { _ = try? write(context: context, to: filesFolder) }
+
     /// Returns file URLs ready for ShareLink. Old exports are removed first.
     @MainActor
-    static func write(context: ModelContext) throws -> [URL] {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("reset-export", isDirectory: true)
+    static func write(context: ModelContext, to folder: URL? = nil) throws -> [URL] {
+        let dir = folder ?? FileManager.default.temporaryDirectory.appendingPathComponent("reset-export", isDirectory: true)
         try? FileManager.default.removeItem(at: dir)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let ts = tables(context: context)

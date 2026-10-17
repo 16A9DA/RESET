@@ -44,7 +44,7 @@ struct PrivacyPolicyView: View {
     var body: some View {
         LegalDocument(title: "Privacy Policy", sections: [
             .init(title: "Summary", body: "\(LegalInfo.appName) keeps your data on your iPhone. We have no account system and no server that stores your information."),
-            .init(title: "What we collect", body: "Only what you enter or allow: profile details, food and drink logs, water, sleep, check-ins, work and university times, and Apple Health data you choose to share. All of it is stored on your device."),
+            .init(title: "What we collect", body: "Only what you enter or allow: profile details, food and drink logs, water, sleep, check-ins, work and university times, and Apple Health data you choose to share. All of it is stored on your device, and a readable copy is kept in the Files app that you can open, share or delete."),
             .init(title: "Location", body: "If you allow it, the app watches circles around places you save, such as your office, to note when you arrive and leave. It does not record your route. Coordinates and location history are never sent anywhere."),
             .init(title: "Apple Health", body: "Health data is read only with your permission, used on your device to show steps, sleep and workouts, and never sold or used for advertising."),
             .init(title: "Services that receive data", body: "If you add an AI key, the food text or photo you submit and the questions you ask the coach go to the AI provider you chose, under its own policy. Food searches send your search words to USDA FoodData Central. Barcode lookups send the number to Open Food Facts. Nothing else leaves your phone."),
