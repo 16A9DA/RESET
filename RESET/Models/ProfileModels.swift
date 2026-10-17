@@ -76,7 +76,7 @@ final class UserProfile {
         gymDaysPerWeek = 3; equipment = .gym; trainingLevelRaw = "returning"
         dietaryPreferences = []; allergies = []; caffeineHabit = ""
         calorieCountingEnabled = true
-        deficitPercent = 0.15; proteinPerKg = 1.6
+        deficitPercent = 0.15; proteinPerKg = 1.8
         fluidRestriction = false; quickWaterMl = [150, 250, 500]
         sleepTargetHours = 8; windDownMinutes = 45
         mealPattern = [.breakfast, .lunch, .dinner]

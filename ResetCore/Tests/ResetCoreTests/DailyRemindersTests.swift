@@ -78,3 +78,15 @@ private func food(_ name: String, kcal: Double, caffeine: Double? = nil) -> Food
     #expect(big.walkMinutes <= 45 && big.eatLessKcal <= 300 && big.eatLessKcal > 0)
     #expect(MissedWorkout.advice(consumedKcal: 0, targetKcal: 2000, weightKg: 80, mealsLogged: 0, steps: 1000).walkMinutes == 30)
 }
+
+@Test func macroCoachAdvice() {
+    let carby = Nutrition(kcal: 800, proteinG: 25, carbsG: 130, fatG: 20)
+    let a = MacroCoach.advise(consumed: carby, targetKcal: 2400, targetProteinG: 165, weightKg: 100, hour: 13, mealsLogged: 2)
+    #expect(a?.headline.contains("Carb heavy") == true)
+    #expect(a?.nextMealProteinG == 40) // 0.4 g/kg
+    let fatty = Nutrition(kcal: 900, proteinG: 60, carbsG: 40, fatG: 70)
+    #expect(MacroCoach.advise(consumed: fatty, targetKcal: 2400, targetProteinG: 165, weightKg: 100, hour: 12, mealsLogged: 2)?.headline.contains("Fat") == true)
+    let over = Nutrition(kcal: 2600, proteinG: 150, carbsG: 250, fatG: 80)
+    #expect(MacroCoach.advise(consumed: over, targetKcal: 2400, targetProteinG: 165, weightKg: 100, hour: 20, mealsLogged: 4)?.headline.contains("Past") == true)
+    #expect(MacroCoach.advise(consumed: .zero, targetKcal: 2400, targetProteinG: 165, weightKg: 100, hour: 12, mealsLogged: 0) == nil)
+}

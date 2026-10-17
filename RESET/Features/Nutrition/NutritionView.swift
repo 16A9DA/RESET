@@ -19,6 +19,7 @@ struct NutritionView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     summary
+                    nextMeal
                     WaterCard()
                     if caffeineMg > 0 {
                         NavigationLink { ScrollView { CaffeineCard().padding() }.background(GlassBackdrop()).navigationTitle("Caffeine") } label: {
@@ -60,6 +61,19 @@ struct NutritionView: View {
             }
             .sheet(isPresented: $adding) { AddFoodView() }
             .sheet(item: $editing) { MealEditor(meal: $0) }
+        }
+    }
+
+    @ViewBuilder private var nextMeal: some View {
+        let plan = profile?.energyPlan
+        if let a = MacroCoach.advise(consumed: totals.total, targetKcal: profile?.calorieCountingEnabled == false ? nil : plan?.targetKcal,
+                                     targetProteinG: plan?.proteinG ?? 0, weightKg: profile?.weightKg ?? 75,
+                                     hour: Calendar.current.component(.hour, from: .now), mealsLogged: totals.mealCount) {
+            Card {
+                Label("Next meal", systemImage: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(Theme.secondaryText)
+                Text(a.headline).font(.system(.headline, design: .rounded))
+                Text(a.detail).font(.subheadline).foregroundStyle(Theme.secondaryText)
+            }
         }
     }
 
