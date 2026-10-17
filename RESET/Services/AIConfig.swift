@@ -26,7 +26,7 @@ enum AIConfig {
         }
         /// Only Anthropic has a suggested model. OpenAI and others rename models often, so the user enters one
         /// that supports images from their own account instead of the app guessing.
-        var defaultModel: String { self == .anthropic ? "claude-sonnet-5-5" : "" }
+        var defaultModel: String { self == .anthropic ? "claude-haiku-5-5" : "" }
     }
 
     static let customBaseKey = "ai.custom.baseURL"
@@ -36,7 +36,8 @@ enum AIConfig {
     static func model(for kind: Kind, profile: UserProfile? = nil) -> String {
         if let m = UserDefaults.standard.string(forKey: modelKey(kind)), !m.isEmpty { return m }
         // Earlier builds kept one model on the profile, used by Anthropic.
-        if kind == .anthropic, let m = profile?.aiModel, !m.isEmpty { return m }
+        // The old Sonnet default is ignored so existing installs move to the cheaper default. A model you typed in Settings is kept.
+        if kind == .anthropic, let m = profile?.aiModel, !m.isEmpty, m != "claude-sonnet-5-5" { return m }
         return kind.defaultModel
     }
 

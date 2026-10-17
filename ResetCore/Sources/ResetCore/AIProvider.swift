@@ -138,7 +138,7 @@ public struct AnthropicProvider: AIProvider {
     let model: String
     let baseURL: URL
 
-    public init(apiKey: String, model: String = "claude-sonnet-5-5", baseURL: URL = URL(string: "https://api.anthropic.com")!,
+    public init(apiKey: String, model: String = "claude-haiku-5-5", baseURL: URL = URL(string: "https://api.anthropic.com")!,
                 http: HTTPClient = URLSessionClient()) {
         self.apiKey = apiKey; self.model = model; self.baseURL = baseURL; self.http = http
     }

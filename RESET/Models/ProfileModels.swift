@@ -81,7 +81,7 @@ final class UserProfile {
         sleepTargetHours = 8; windDownMinutes = 45
         mealPattern = [.breakfast, .lunch, .dinner]
         autoSaveFood = true; keepConversationHistory = true
-        aiProviderRaw = "anthropic"; aiModel = "claude-sonnet-5-5"
+        aiProviderRaw = "anthropic"; aiModel = "claude-haiku-5-5"
     }
 }
 
