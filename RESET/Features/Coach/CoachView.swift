@@ -102,8 +102,7 @@ struct CoachView: View {
     @State private var input = ""
     @State private var editing: FoodDraft?
 
-    private let suggestions = ["What should I do today?", "How many calories do I have left?", "Should I go to the gym?",
-                               "I'm exhausted after work", "Suggest a high-protein cafeteria meal", "When should I go to sleep?"]
+    private let suggestions = ["What should I do today?", "I'm exhausted after work", "When should I go to sleep?"]
 
     var body: some View {
         NavigationStack {
@@ -140,8 +139,6 @@ struct CoachView: View {
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Ask about your day").font(.title3.weight(.semibold))
-            Text("The coach reads what you have logged. It says so when something is missing, and it never logs or changes settings without you being able to review it. It is not a doctor.")
-                .font(.footnote).foregroundStyle(Theme.secondaryText)
             ForEach(suggestions, id: \.self) { s in
                 Button(s) { send(s) }.buttonStyle(.bordered).font(.footnote)
             }
@@ -160,7 +157,7 @@ struct CoachView: View {
     }
 
     private func pendingCard(_ p: PendingAction) -> some View {
-        Card(title: "Needs your OK") {
+        Card {
             Text(p.text)
             HStack {
                 Button("Confirm") { Task { await model.confirm(p, context: context) } }.buttonStyle(.borderedProminent)
@@ -171,11 +168,11 @@ struct CoachView: View {
 
     private func draftCard(_ d: FoodDraft) -> some View {
         let total = d.items.filter(\.consumed).reduce(Nutrition.zero) { $0 + $1.nutrition }
-        return Card(title: "Food draft, not saved yet") {
+        return Card {
             ForEach(d.items) { i in
                 Text("\(i.name), \(Int(i.grams)) g, \(Int(i.nutrition.kcal)) kcal\(i.verified ? "" : " (estimate)")").font(.subheadline)
             }
-            Text("About \(Int(total.kcal)) kcal and \(Int(total.proteinG)) g protein. Estimates, check before saving.").font(.footnote).foregroundStyle(Theme.secondaryText)
+            Text("About \(Int(total.kcal)) kcal, \(Int(total.proteinG)) g protein. Not saved yet.").font(.footnote).foregroundStyle(Theme.secondaryText)
             ForEach(d.uncertainties, id: \.self) { Text("Unsure: \($0)").font(.caption).foregroundStyle(Theme.warn) }
             HStack {
                 Button("Save") { saveDraft(d) }.buttonStyle(.borderedProminent)
@@ -186,10 +183,9 @@ struct CoachView: View {
     }
 
     private var needsAICard: some View {
-        Card(title: "AI is not set up") {
-            Text("I can answer simple questions about your water, calories, protein, steps and work hours without AI. For anything else, add an API key.")
-                .font(.footnote)
-            if let p = profile { NavigationLink("Set up AI") { AISettingsView(profile: p) } }
+        Card {
+            Text("Simple questions work now. For more, turn on AI.").font(.footnote)
+            if let p = profile { NavigationLink("Turn on AI") { AISettingsView(profile: p) } }
         }
     }
 

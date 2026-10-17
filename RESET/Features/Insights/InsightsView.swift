@@ -48,12 +48,10 @@ struct InsightsView: View {
         let workouts = week.filter(\.trained).count
         let daysWithFood = week.filter { $0.firstMealMinute != nil }.count
         return Card(title: "Last 7 days") {
-            row("Sleep", sleep.isEmpty ? "Not recorded" : String(format: "%.1f h average over %d night(s)", sleep.reduce(0, +) / Double(sleep.count), sleep.count))
-            row("Steps", steps.isEmpty ? (health.authRequested ? "No data" : "Permission required") : "\((steps.reduce(0, +) / steps.count).formatted()) a day")
-            row("Strength sessions", "\(workouts)")
-            row("Walking", String(format: "%.0f min total", week.reduce(0) { $0 + $1.walkMinutes }))
+            row("Sleep", sleep.isEmpty ? "None" : String(format: "%.1f h avg", sleep.reduce(0, +) / Double(sleep.count)))
+            row("Steps", steps.isEmpty ? "None" : "\((steps.reduce(0, +) / steps.count).formatted()) a day")
+            row("Workouts", "\(workouts)")
             row("Days with food logged", "\(daysWithFood) of 7")
-            row("Calories", weekCalories)
         }
     }
 
@@ -83,7 +81,6 @@ struct InsightsView: View {
         if data.contains(where: { $0.1 > 0 }) {
             Card(title: "Work and university hours") {
                 Chart(data, id: \.0) { BarMark(x: .value("Day", $0.0, unit: .day), y: .value("Hours", $0.1)).foregroundStyle(Theme.accent) }.frame(height: 130)
-                Text("Includes location estimates. Confirm sessions in Work and University for firm numbers.").font(.caption).foregroundStyle(Theme.secondaryText)
             }
         }
     }
@@ -97,19 +94,16 @@ struct InsightsView: View {
         func show(_ kg: Double) -> String { imperial ? String(format: "%.1f lb", Units.kgToLb(kg)) : String(format: "%.1f kg", kg) }
         return Card(title: "Weight") {
             if let last = weights.last { BigMetric(value: show(last.kg), caption: "Logged \(last.at.formatted(date: .abbreviated, time: .omitted))") }
-            else { BigMetric(value: "Not recorded", caption: "Weigh in whenever you like. Weekly is plenty.") }
+            else { BigMetric(value: "None yet", caption: "Weekly is plenty.") }
             if let s = slope {
                 let perWeek = s * 7
-                Text("Trend: \(perWeek >= 0 ? "+" : "")\(imperial ? String(format: "%.1f lb", Units.kgToLb(perWeek)) : String(format: "%.2f kg", perWeek)) a week, from \(pts.count) weigh-ins. Single days bounce around, so watch the trend.")
+                Text("Trend: \(perWeek >= 0 ? "+" : "")\(imperial ? String(format: "%.1f lb", Units.kgToLb(perWeek)) : String(format: "%.2f kg", perWeek)) a week")
                     .font(.footnote).foregroundStyle(Theme.secondaryText)
-            } else if !weights.isEmpty {
-                Text("Needs about four weigh-ins over ten days before a trend is shown.").font(.footnote).foregroundStyle(Theme.secondaryText)
             }
             if let p = profile, let target = p.targetWeightKg, let first = weights.first, let last = weights.last, abs(first.kg - target) > 0.1 {
                 let done = (first.kg - last.kg) / (first.kg - target)
                 ProgressBar(fraction: max(0, done))
-                Text("\(Int(max(0, min(1, done)) * 100))% of the way from \(show(first.kg)) to \(show(target)). Fat loss is gradual, and it does not come from one area of the body.")
-                    .font(.caption).foregroundStyle(Theme.secondaryText)
+                Text("\(Int(max(0, min(1, done)) * 100))% of the way to \(show(target))").font(.caption).foregroundStyle(Theme.secondaryText)
             }
             HStack {
                 TextField(imperial ? "lb" : "kg", text: $weightText).keyboardType(.decimalPad)
@@ -117,7 +111,7 @@ struct InsightsView: View {
             }
             if let m = suggestedMaintenance(pts) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Your intake and weight trend suggest maintenance is nearer \(Int(m.rounded())) kcal. This is a suggestion from your own data, not a certainty.").font(.footnote)
+                    Text("Your data suggests maintenance is nearer \(Int(m.rounded())) kcal.").font(.footnote)
                     Button(applied ? "Applied" : "Use this as my maintenance") { profile?.maintenanceOverrideKcal = m; applied = true }.disabled(applied)
                 }
             }
@@ -147,29 +141,21 @@ struct InsightsView: View {
     // MARK: Patterns
 
     private func patterns(_ days: [InsightDay]) -> some View {
-        let items = InsightEngine.all(days, sleepTarget: profile?.sleepTargetHours ?? 8)
+        let items = InsightEngine.all(days, sleepTarget: profile?.sleepTargetHours ?? 8).filter { $0.state == .pattern }
         return VStack(spacing: 10) {
             ForEach(items) { i in
-                Card(title: i.title) {
-                    Text(i.text).font(.subheadline)
-                    HStack {
-                        Image(systemName: i.state == .pattern ? "chart.xyaxis.line" : (i.state == .collecting ? "hourglass" : "equal.circle"))
-                        Text("\(i.observations) day(s) of data").font(.caption)
-                    }.foregroundStyle(Theme.secondaryText)
-                }
+                Card(title: i.title) { Text(i.text).font(.subheadline) }
             }
-            Text(InsightEngine.cautionNote).font(.caption).foregroundStyle(Theme.secondaryText)
+            if !items.isEmpty { Text(InsightEngine.cautionNote).font(.caption).foregroundStyle(Theme.secondaryText) }
         }
     }
 
     // MARK: Export
 
     private var exportCard: some View {
-        Card(title: "Your data") {
-            Text("Export everything you have logged as JSON and CSV files. They are created on this iPhone and go only where you send them.")
-                .font(.footnote).foregroundStyle(Theme.secondaryText)
+        Card {
             if exportURLs.isEmpty {
-                Button("Prepare export") {
+                Button("Export my data") {
                     do { exportURLs = try DataExporter.write(context: context); exportError = nil }
                     catch { exportError = "Could not create the export: \(error.localizedDescription)" }
                 }
