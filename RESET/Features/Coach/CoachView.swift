@@ -139,6 +139,7 @@ struct CoachView: View {
     private var intro: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Ask about your day").font(.title3.weight(.semibold))
+            Text("You are talking to an AI, not a person or a doctor.").font(.footnote).foregroundStyle(Theme.secondaryText)
             ForEach(suggestions, id: \.self) { s in
                 Button(s) { send(s) }.buttonStyle(.bordered).font(.footnote)
             }
@@ -191,7 +192,7 @@ struct CoachView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom) {
-            TextField("Message", text: $input, axis: .vertical).lineLimit(1...4)
+            TextField("Message the AI coach", text: $input, axis: .vertical).lineLimit(1...4)
                 .padding(10).glass(18)
                 .submitLabel(.send).onSubmit { send(input) }
             Button { send(input) } label: { Image(systemName: "arrow.up.circle.fill").font(.title) }
