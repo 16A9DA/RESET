@@ -90,3 +90,12 @@ private func food(_ name: String, kcal: Double, caffeine: Double? = nil) -> Food
     #expect(MacroCoach.advise(consumed: over, targetKcal: 2400, targetProteinG: 165, weightKg: 100, hour: 20, mealsLogged: 4)?.headline.contains("Past") == true)
     #expect(MacroCoach.advise(consumed: .zero, targetKcal: 2400, targetProteinG: 165, weightKg: 100, hour: 12, mealsLogged: 0) == nil)
 }
+
+@Test func eatCheckSuggestsProteinPairing() {
+    let toast = FoodItem(name: "jam toast", grams: 100, nutrition: Nutrition(kcal: 300, proteinG: 6, carbsG: 60, fatG: 4),
+                         dataSource: "test", verified: true, confidence: .high)
+    let v = EatCheck.verdict(items: [toast], remainingKcal: 900, caffeineTodayMg: 0, hoursToBed: 10, allergies: [], proteinLeftG: 90)
+    #expect(v.level == .yes && v.reasons.contains { $0.contains("Pair it") })
+    let ok = EatCheck.verdict(items: [toast], remainingKcal: 900, caffeineTodayMg: 0, hoursToBed: 10, allergies: [], proteinLeftG: 10)
+    #expect(!ok.reasons.contains { $0.contains("Pair it") })
+}

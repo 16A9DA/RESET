@@ -127,7 +127,8 @@ struct CanIEatView: View {
             hours = h > 0 ? h : nil
         }
         return EatCheck.verdict(items: items, remainingKcal: s.calorieCounting ? s.kcalRemaining : nil, caffeineTodayMg: s.caffeineMg,
-                                hoursToBed: hours, allergies: profile?.allergies ?? [])
+                                hoursToBed: hours, allergies: profile?.allergies ?? [],
+                                proteinLeftG: max(0, s.proteinTargetG - s.proteinG))
     }
 
     private func log() {

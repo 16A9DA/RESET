@@ -13,7 +13,7 @@ public enum EatCheck {
     public static let allergyCaveat = "I cannot see every ingredient. Check the label if you have an allergy."
 
     public static func verdict(items: [FoodItem], remainingKcal: Double?, caffeineTodayMg: Double, hoursToBed: Double?,
-                               allergies: [String]) -> EatVerdict {
+                               allergies: [String], proteinLeftG: Double? = nil) -> EatVerdict {
         let total = items.reduce(Nutrition.zero) { $0 + $1.nutrition }
         var level = EatVerdict.Level.yes
         var reasons: [String] = []
@@ -36,6 +36,10 @@ public enum EatCheck {
                 if level == .yes { level = .maybe }
                 reasons.append("That would take caffeine past the commonly cited 400 mg a day.")
             }
+        }
+        // Mostly carbs while protein is behind: still fine to eat, but pair it with protein.
+        if level != .no, total.kcal >= 150, total.carbsG * 4 / total.kcal > 0.6, total.proteinG < 10, (proteinLeftG ?? 0) >= 25 {
+            reasons.append("Mostly carbs and you are behind on protein. Pair it with \(MacroCoach.proteinFoods).")
         }
         if reasons.isEmpty {
             reasons.append(total.proteinG >= 20 ? "Fits your day, and it has about \(Int(total.proteinG.rounded())) g protein." : "Fits your day.")
