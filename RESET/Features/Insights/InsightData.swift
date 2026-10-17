@@ -105,6 +105,10 @@ enum DataExporter {
         }
         let ju = dir.appendingPathComponent("reset-export.json")
         try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]).write(to: ju, options: .atomic)
+        // Encrypted at rest until the first unlock after a restart.
+        for u in [dir] + urls + [ju] {
+            try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: u.path)
+        }
         return [ju] + urls
     }
 }

@@ -7,6 +7,7 @@ struct OnboardingView: View {
     @Bindable var profile: UserProfile
     @State private var step = 0
     @State private var remindersOn = true
+    @State private var agreed = false
 
     private let lastStep = 4
 
@@ -43,8 +44,8 @@ struct OnboardingView: View {
                     .font(.title3)
                 Text("Estimates only, not medical advice. Your data stays on this iPhone.")
                     .font(.subheadline).foregroundStyle(Theme.secondaryText)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("By continuing you agree to the").font(.footnote).foregroundStyle(Theme.secondaryText)
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("I am 16 or older and agree to the Terms of Use and Privacy Policy", isOn: $agreed).font(.subheadline)
                     LegalLinks()
                 }
             }
@@ -71,6 +72,7 @@ struct OnboardingView: View {
                 if step == lastStep { finish() } else { withAnimation { step += 1 } }
             }
             .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
+            .disabled(step == 0 && !agreed)
         }
         .padding()
     }

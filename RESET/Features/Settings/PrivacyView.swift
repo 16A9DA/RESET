@@ -38,7 +38,7 @@ struct PrivacyView: View {
                 text("API keys are kept in the iOS Keychain, only on this device.")
             }
             Section("What leaves the phone") {
-                text("Only when you use AI features: the food description or meal photo you submit, the question you type to the coach, and the tool results the coach asks for, such as today's totals. Raw location, place coordinates and location history are never sent.")
+                text("Only when you turn on AI and give permission: the food description or meal photo you submit, the question you type to the coach, and the tool results the coach asks for, such as today's totals. Raw location, place coordinates and location history are never sent.")
                 text("Food searches go to USDA FoodData Central and barcode lookups go to Open Food Facts, with only the search text or barcode number.")
                 text("Your chosen AI provider has its own data policy. Check it before sending photos.")
             }

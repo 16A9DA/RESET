@@ -10,12 +10,11 @@ enum Store {
     ]
 
     static func container(inMemory: Bool = false) -> ModelContainer {
-        let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
+        let config = ModelConfiguration(isStoredInMemoryOnly: inMemory, allowsSave: true)
         do {
             return try ModelContainer(for: Schema(models), configurations: config)
         } catch {
             // Never wipe the store silently. Fall back to memory so the app opens, and surface the error.
-            print("SwiftData store failed to open: \(error)")
             let mem = ModelConfiguration(isStoredInMemoryOnly: true)
             return try! ModelContainer(for: Schema(models), configurations: mem)
         }

@@ -58,7 +58,7 @@ struct BodySection: View {
         Section {
             Toggle("Use my age for calorie estimates", isOn: ageShared)
             if let age = profile.age {
-                Stepper("Age: \(age)", value: Binding(get: { age }, set: { profile.age = $0 }), in: 14...100)
+                Stepper("Age: \(age)", value: Binding(get: { age }, set: { profile.age = $0 }), in: 16...100)
             }
             Picker("Sex, optional", selection: sexChoice) {
                 Text("Prefer not to say").tag("none")

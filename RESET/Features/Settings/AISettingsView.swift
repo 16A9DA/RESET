@@ -10,12 +10,14 @@ struct AISettingsView: View {
     @State private var testing = false
     @State private var testResult: (ok: Bool, message: String)?
 
+    @State private var consent = false
+
     private var kind: AIConfig.Kind { AIConfig.Kind(rawValue: profile.aiProviderRaw) ?? .anthropic }
 
     var body: some View {
         Form {
             Section {
-                Picker("Provider", selection: $profile.aiProviderRaw) {
+                Picker("Provider", selection: Binding(get: { profile.aiProviderRaw }, set: { profile.aiProviderRaw = $0; consent = AIConfig.hasConsent(AIConfig.Kind(rawValue: $0) ?? .anthropic) })) {
                     ForEach(AIConfig.Kind.allCases) { k in
                         Text(k.title).tag(k.rawValue)
                     }
@@ -34,6 +36,12 @@ struct AISettingsView: View {
                 Text("Choose a provider")
             } footer: {
                 Text("Only the selected provider is used. Each keeps its own key and model, so you can switch at any time.")
+            }
+
+            Section {
+                Toggle("Allow sending to \(kind.title)", isOn: Binding(get: { consent }, set: { consent = $0; AIConfig.setConsent($0, for: kind) }))
+            } header: { Text("Your permission") } footer: {
+                Text("If on, the food text or meal photos you submit, your questions to the coach and the daily totals the coach looks up are sent to \(kind.title) to get an answer. Location, places and Apple Health data are never sent. \(kind.title) handles it under its own privacy policy. Turn this off at any time and nothing is sent.")
             }
 
             Section {
@@ -98,6 +106,7 @@ struct AISettingsView: View {
     }
 
     private func load() {
+        consent = AIConfig.hasConsent(kind)
         for k in AIConfig.Kind.allCases {
             if let key = k.keychainKey { keys[k] = Keychain.get(key) ?? "" }
             models[k] = AIConfig.model(for: k, profile: profile)

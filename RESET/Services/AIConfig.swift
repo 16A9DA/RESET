@@ -29,6 +29,10 @@ enum AIConfig {
         var defaultModel: String { self == .anthropic ? "claude-haiku-5-5" : "" }
     }
 
+    /// Explicit permission to send your data to the chosen AI company. Nothing is sent without it.
+    static func hasConsent(_ kind: Kind) -> Bool { UserDefaults.standard.bool(forKey: "ai.consent.\(kind.rawValue)") }
+    static func setConsent(_ on: Bool, for kind: Kind) { UserDefaults.standard.set(on, forKey: "ai.consent.\(kind.rawValue)") }
+
     static let customBaseKey = "ai.custom.baseURL"
     static let proxyBaseKey = "ai.proxy.baseURL"
     private static func modelKey(_ k: Kind) -> String { "ai.model.\(k.rawValue)" }
@@ -53,7 +57,7 @@ enum AIConfig {
     static func provider(kind rawKind: String, profile: UserProfile? = nil) -> AIProvider? {
         let kind = Kind(rawValue: rawKind) ?? .anthropic
         let d = UserDefaults.standard
-        guard let k = kind.keychainKey.flatMap(Keychain.get), !k.isEmpty else { return nil }
+        guard hasConsent(kind), let k = kind.keychainKey.flatMap(Keychain.get), !k.isEmpty else { return nil }
         let model = model(for: kind, profile: profile)
         switch kind {
         case .anthropic:
@@ -66,7 +70,7 @@ enum AIConfig {
             guard !model.isEmpty, let s = d.string(forKey: customBaseKey), let url = URL(string: s), url.scheme == "https" else { return nil }
             return OpenAICompatibleProvider(apiKey: k, model: model, baseURL: url)
         case .proxy:
-            guard let s = d.string(forKey: proxyBaseKey), let url = URL(string: s), ["https", "http"].contains(url.scheme) else { return nil }
+            guard let s = d.string(forKey: proxyBaseKey), let url = URL(string: s), url.scheme == "https" else { return nil }
             return ProxyProvider(baseURL: url, token: k)
         }
     }
