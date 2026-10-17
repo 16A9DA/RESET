@@ -1,4 +1,3 @@
-CLAUDE.md
 .claude/
 .env
 .env.*
@@ -12,7 +11,6 @@ implementation_plan.md
 task.md
 system_architecture.md
 .cursorrules
-plan.md
 graphify-out/
 .DS_Store
 xcuserdata/
@@ -27,3 +25,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 node_modules/
+
+# Markdown stays local. Only the README is tracked.
+*.md
+!README.md
