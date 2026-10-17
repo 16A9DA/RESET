@@ -16,34 +16,22 @@ struct ActivityView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
-                    RecoveryCard()
-                    WorkoutCard()
+                VStack(spacing: 12) {
                     if !health.authRequested { healthCard }
                     stepsCard
                     WalkCard()
-                    Card(title: "Structured activity today") {
-                        let m = ActivityMath.structuredMinutes(spans, in: Day.interval(of: .now))
-                        BigMetric(value: m == 0 ? "Not recorded" : "\(Int(m.rounded()))", unit: m == 0 ? "" : "min",
-                                  caption: "Walks, runs and workouts only. A day on your feet at work is not counted as training.")
-                        Button("Record a workout") { recording = true }
-                    }
+                    navRow("Workout", icon: "dumbbell") { ScrollView { WorkoutCard().padding() }.background(Theme.background).navigationTitle("Workout") }
+                    navRow("Sleep", icon: "moon") { SleepView() }
+                    navRow("Work and university", icon: "briefcase") { TimeTrackingView() }
                     history
-                    NavigationLink { SleepView() } label: {
-                        Card(title: "Sleep") {
-                            Text("Plan tonight, log last night, see trends").foregroundStyle(Theme.secondaryText)
-                        }
-                    }.buttonStyle(.plain)
-                    NavigationLink { TimeTrackingView() } label: {
-                        Card(title: "Work and university") {
-                            Text("Hours, places and corrections").foregroundStyle(Theme.secondaryText)
-                        }
-                    }.buttonStyle(.plain)
                 }
                 .padding()
             }
             .background(Theme.background)
             .navigationTitle("Activity")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { Button { recording = true } label: { Image(systemName: "plus") }.accessibilityLabel("Record a workout") }
+            }
             .task {
                 await health.refresh()
                 await health.importWorkouts(since: Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .now, context: context)
@@ -53,57 +41,56 @@ struct ActivityView: View {
         }
     }
 
+    private func navRow<D: View>(_ title: String, icon: String, @ViewBuilder destination: @escaping () -> D) -> some View {
+        NavigationLink(destination: destination) {
+            HStack {
+                Label(title, systemImage: icon).font(.headline)
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
+            }
+            .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }.buttonStyle(Press())
+    }
+
     private var healthCard: some View {
-        Card(title: "Apple Health") {
-            Text("Connect Health to read steps, distance and workouts from your iPhone and other apps. Without it, RE:SET falls back to the iPhone motion sensor for steps.")
-                .font(.footnote).foregroundStyle(Theme.secondaryText)
-            Button("Connect Apple Health") { Task { await health.requestAccess() } }
+        Card {
+            Label("Apple Health", systemImage: "heart").font(.headline)
+            Button("Connect for steps and workouts") { Task { await health.requestAccess() } }
                 .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
             if let m = health.message { Text(m).font(.footnote).foregroundStyle(Theme.low) }
         }
     }
 
     private var stepsCard: some View {
-        Card(title: "Steps today") {
-            if let s = health.todaySteps {
-                BigMetric(value: s.formatted(), caption: "Source: \(health.stepSource)")
-            } else {
-                BigMetric(value: "Not recorded", caption: health.authRequested
-                          ? "No step data returned. Health access may be off in Settings > Health > Data Access."
-                          : "Permission required")
-            }
-            if let d = health.distanceM, d > 0 {
-                Text(String(format: "%.1f km walking and running", d / 1000)).font(.footnote).foregroundStyle(Theme.secondaryText)
+        Card {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Steps", systemImage: "figure.walk").font(.headline)
+                Spacer()
+                Text(health.todaySteps.map { $0.formatted() } ?? "None").font(.system(.title, design: .rounded, weight: .bold)).monospacedDigit()
             }
             if !health.week.isEmpty {
                 Chart(health.week) { d in
                     BarMark(x: .value("Day", d.day, unit: .day), y: .value("Steps", d.steps))
                         .foregroundStyle(Theme.accent)
                 }
-                .frame(height: 120)
+                .frame(height: 90)
             }
-            Text("Steps come from your iPhone. They can miss activity when the phone is not on you.")
-                .font(.caption).foregroundStyle(Theme.secondaryText)
         }
     }
 
-    private var history: some View {
-        Card(title: "History") {
-            if records.isEmpty {
-                EmptyNote(systemImage: "figure.walk", title: "No activity yet",
-                          message: "Start a walk or record a workout. Workouts from Apple Health appear here too.")
-            }
-            ForEach(ActivityMath.dedupe(spans).sorted { $0.start > $1.start }.prefix(20), id: \.id) { s in
-                if let r = records.first(where: { $0.id == s.id }) {
-                    HStack {
-                        VStack(alignment: .leading) {
+    @ViewBuilder private var history: some View {
+        let recent = ActivityMath.dedupe(spans).sorted { $0.start > $1.start }.prefix(5)
+        if !recent.isEmpty {
+            Card(title: "Recent") {
+                ForEach(Array(recent), id: \.id) { s in
+                    if let r = records.first(where: { $0.id == s.id }) {
+                        HStack {
                             Text(r.kind.rawValue.capitalized).font(.headline)
-                            Text("\(r.start.formatted(date: .abbreviated, time: .shortened)), \(Int(r.minutes)) min, \(r.source == .imported ? "from Health" : "logged here")")
+                            Spacer()
+                            Text("\(r.start.formatted(.dateTime.weekday(.abbreviated).hour().minute())), \(Int(r.minutes)) min")
                                 .font(.footnote).foregroundStyle(Theme.secondaryText)
                         }
-                        Spacer()
-                        Button(role: .destructive) { context.delete(r); try? context.save() } label: { Image(systemName: "trash") }
-                            .accessibilityLabel("Delete")
+                        .contextMenu { Button("Delete", role: .destructive) { context.delete(r); try? context.save() } }
                     }
                 }
             }
@@ -118,7 +105,7 @@ struct WalkCard: View {
     @State private var saving = false
 
     var body: some View {
-        Card(title: "Walk") {
+        Card {
             if startTS > 0 {
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
                     BigMetric(value: elapsed(ctx.date), caption: "Walk in progress")
@@ -127,8 +114,6 @@ struct WalkCard: View {
                     .buttonStyle(.borderedProminent).tint(Theme.low).disabled(saving)
                 Button("Discard", role: .destructive) { startTS = 0 }.font(.footnote)
             } else {
-                Text("Time a walk. Steps are read from your iPhone when available.")
-                    .font(.footnote).foregroundStyle(Theme.secondaryText)
                 Button("Start walk") { startTS = Date.now.timeIntervalSince1970 }
                     .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
             }
