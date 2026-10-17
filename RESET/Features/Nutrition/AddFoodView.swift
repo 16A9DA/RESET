@@ -4,14 +4,13 @@ import PhotosUI
 import ResetCore
 
 enum FoodMethod: String, CaseIterable, Identifiable {
-    case describe = "Describe", photo = "Photo", search = "Search", barcode = "Barcode", manual = "Manual", saved = "Saved", recent = "Recent"
+    case describe = "Describe", photo = "Photo", barcode = "Barcode"
     var id: String { rawValue }
 }
 
 struct AddFoodView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \SavedMeal.useCount, order: .reverse) private var saved: [SavedMeal]
     @Query(sort: \MealRecord.at, order: .reverse) private var meals: [MealRecord]
     @Query private var profiles: [UserProfile]
 
@@ -29,7 +28,6 @@ struct AddFoodView: View {
     @State private var error: String?
     @State private var picked: ReferenceFood?
     @State private var grams = 100.0
-    @State private var manual = FoodItem(name: "", grams: 100, nutrition: .zero, dataSource: "Entered by you", verified: false, confidence: .high)
     @State private var confirmDuplicate = false
     @State private var uncertainties: [String] = []
     @State private var pickerItem: PhotosPickerItem?
@@ -62,11 +60,7 @@ struct AddFoodView: View {
                     switch method {
                     case .describe: describePane
                     case .photo: photoPane
-                    case .search: searchPane
                     case .barcode: barcodePane
-                    case .manual: manualPane
-                    case .saved: savedPane
-                    case .recent: recentPane
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -74,7 +68,7 @@ struct AddFoodView: View {
                 draftBar
             }
             .background(Theme.background)
-            .navigationTitle("Log food")
+            .navigationTitle("Log")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
             .sheet(item: Binding(get: { picked.map(Picked.init) }, set: { picked = $0?.food })) { p in portionSheet(p.food) }
@@ -82,6 +76,8 @@ struct AddFoodView: View {
             .onChange(of: pickerItem) { _, item in
                 Task { if let d = try? await item?.loadTransferable(type: Data.self), let img = UIImage(data: d) { photo = img } }
             }
+            // A photo is the whole input, so analyze it right away.
+            .onChange(of: photo) { _, new in if new != nil { runAnalysis() } }
             .alert("Looks like a repeat", isPresented: $confirmDuplicate) {
                 Button("Save anyway") { save() }
                 Button("Cancel", role: .cancel) {}
@@ -97,11 +93,9 @@ struct AddFoodView: View {
     private var provider: AIProvider? { AIConfig.provider(for: profiles.first) }
 
     private var setupPrompt: some View {
-        VStack(spacing: 8) {
-            EmptyNote(systemImage: "sparkles", title: "AI is not set up",
-                      message: "Describing or photographing food needs an AI service key. Search, barcode, manual entry and saved meals work without one.")
+        Group {
             if let p = profiles.first {
-                NavigationLink("Set up AI") { AISettingsView(profile: p) }
+                NavigationLink("Turn on instant logging with AI") { AISettingsView(profile: p) }.font(.subheadline)
             }
         }
     }
@@ -109,47 +103,45 @@ struct AddFoodView: View {
     private var describePane: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if provider == nil { setupPrompt }
-                TextField("e.g. chicken, rice, salad and some dressing at the cafeteria", text: $text, axis: .vertical)
-                    .lineLimit(3...6).padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
-                Button { runAnalysis() } label: {
-                    HStack { if busy { ProgressView() }; Text(busy ? "Working out nutrition" : "Estimate nutrition") }
-                        .frame(maxWidth: .infinity)
+                TextField("What did you have?", text: $text, axis: .vertical)
+                    .lineLimit(2...5).padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+                    .submitLabel(.done)
+                Button { provider == nil ? runSearch() : runAnalysis() } label: {
+                    HStack { if busy { ProgressView() }; Text("Add") }.frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
-                .disabled(busy || provider == nil || text.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(busy || text.trimmingCharacters(in: .whitespaces).isEmpty)
+                if provider == nil { setupPrompt }
                 if let error { Text(error).foregroundStyle(Theme.low).font(.footnote) }
                 aiNotes
-                Text("Tip: tap the microphone on the keyboard to dictate. Amounts like \"100 g\" are used exactly. Everything else is a portion estimate.")
-                    .font(.caption).foregroundStyle(Theme.secondaryText)
+                ForEach(results, id: \.name) { r in
+                    Button { picked = r; grams = r.servingG ?? 100 } label: {
+                        VStack(alignment: .leading) {
+                            Text(r.name).font(.headline).lineLimit(2)
+                            Text("\(r.brand.map { $0 + ", " } ?? "")\(Int(r.per100g.kcal)) kcal per 100 g")
+                                .font(.caption).foregroundStyle(Theme.secondaryText)
+                        }
+                    }.buttonStyle(.plain)
+                }
             }.padding(.horizontal)
         }
     }
 
     private var photoPane: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                if provider == nil { setupPrompt }
-                if let photo {
-                    Image(uiImage: photo).resizable().scaledToFit().frame(maxHeight: 220).clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-                HStack {
-                    if CameraPicker.available { Button("Take photo") { showCamera = true } }
-                    PhotosPicker("Choose photo", selection: $pickerItem, matching: .images)
-                }
-                TextField("Anything to add? e.g. small portion, no dressing", text: $text)
-                    .padding(12).background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
-                Button { runAnalysis() } label: {
-                    HStack { if busy { ProgressView() }; Text(busy ? "Analyzing" : "Estimate from photo") }.frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
-                .disabled(busy || provider == nil || photo == nil)
-                if let error { Text(error).foregroundStyle(Theme.low).font(.footnote) }
-                aiNotes
-                Text("A photo cannot show exact calories. Oil, sauces and portion size are guesses, so check the result before saving.")
-                    .font(.caption).foregroundStyle(Theme.secondaryText)
-            }.padding(.horizontal)
-        }
+        VStack(spacing: 12) {
+            if let photo {
+                Image(uiImage: photo).resizable().scaledToFit().frame(maxHeight: 240).clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            if busy { ProgressView() }
+            HStack {
+                if CameraPicker.available { Button("Take photo") { showCamera = true }.buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black) }
+                PhotosPicker("Choose photo", selection: $pickerItem, matching: .images).buttonStyle(.bordered)
+            }
+            if provider == nil { setupPrompt }
+            if let error { Text(error).foregroundStyle(Theme.low).font(.footnote) }
+            aiNotes
+            Spacer()
+        }.padding(.horizontal)
     }
 
     @ViewBuilder private var aiNotes: some View {
@@ -164,7 +156,7 @@ struct AddFoodView: View {
         guard let provider else { return }
         busy = true; error = nil; uncertainties = []
         let jpeg = method == .photo ? photo.flatMap { ImagePrep.jpeg($0) } : nil
-        let input = text
+        let input = method == .photo ? "" : text
         Task {
             defer { busy = false }
             do {
@@ -176,38 +168,11 @@ struct AddFoodView: View {
                     items = a.items; save(); return
                 }
                 items += a.items
+                text = ""
             } catch {
-                self.error = "\(error.localizedDescription) Nothing was saved. You can add the food by search or manually."
+                self.error = "\(error.localizedDescription) Nothing was saved."
             }
         }
-    }
-
-    // MARK: Panes
-
-    private var searchPane: some View {
-        List {
-            Section {
-                HStack {
-                    TextField("e.g. chicken breast cooked", text: $text).submitLabel(.search).onSubmit(runSearch)
-                    Button("Search", action: runSearch).disabled(text.trimmingCharacters(in: .whitespaces).isEmpty || busy)
-                }
-                if Keychain.get(Keychain.usdaKey) == nil {
-                    Text("Generic foods come from USDA (shared demo key, about 30 searches an hour; add your own in Settings) and packaged products from Open Food Facts.")
-                        .font(.caption).foregroundStyle(Theme.secondaryText)
-                }
-            }
-            if busy { ProgressView() }
-            if let error { Text(error).foregroundStyle(Theme.low).font(.footnote) }
-            ForEach(results, id: \.name) { r in
-                Button { picked = r; grams = r.servingG ?? 100 } label: {
-                    VStack(alignment: .leading) {
-                        Text(r.name).font(.headline).lineLimit(2)
-                        Text("\(r.brand.map { $0 + ", " } ?? "")\(Int(r.per100g.kcal)) kcal and \(Int(r.per100g.proteinG)) g protein per 100 g. \(r.source)")
-                            .font(.caption).foregroundStyle(Theme.secondaryText)
-                    }
-                }.buttonStyle(.plain)
-            }
-        }.scrollContentBackground(.hidden)
     }
 
     private var barcodePane: some View {
@@ -215,9 +180,6 @@ struct AddFoodView: View {
             if BarcodeScanner.supported {
                 BarcodeScanner { code in Task { await scan(code) } }
                     .clipShape(RoundedRectangle(cornerRadius: 16)).padding(.horizontal)
-            } else {
-                EmptyNote(systemImage: "barcode.viewfinder", title: "Scanner unavailable",
-                          message: "Camera scanning needs a real iPhone with camera permission. Type the number below instead.")
             }
             HStack {
                 TextField("Barcode number", text: $text).keyboardType(.numberPad)
@@ -225,69 +187,7 @@ struct AddFoodView: View {
             }.padding()
             if busy { ProgressView() }
             if let error { Text(error).foregroundStyle(Theme.low).font(.footnote).padding(.horizontal) }
-            Text("Product data from Open Food Facts (ODbL). Check it against the label.")
-                .font(.caption).foregroundStyle(Theme.secondaryText)
         }
-    }
-
-    private var manualPane: some View {
-        Form {
-            TextField("Food name", text: $manual.name)
-            numberRow("Amount (g)", $manual.grams)
-            numberRow("Calories", $manual.nutrition.kcal)
-            numberRow("Protein (g)", $manual.nutrition.proteinG)
-            numberRow("Carbs (g)", $manual.nutrition.carbsG)
-            numberRow("Fat (g)", $manual.nutrition.fatG)
-            Button("Add to meal") {
-                var m = manual; m.name = m.name.trimmingCharacters(in: .whitespaces)
-                items.append(m)
-                manual = FoodItem(name: "", grams: 100, nutrition: .zero, dataSource: "Entered by you", verified: false, confidence: .high)
-            }.disabled(manual.name.trimmingCharacters(in: .whitespaces).isEmpty)
-        }.scrollContentBackground(.hidden)
-    }
-
-    private func numberRow(_ title: String, _ v: Binding<Double>) -> some View {
-        HStack {
-            Text(title); Spacer()
-            TextField("0", value: v, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90)
-        }
-    }
-
-    private var savedPane: some View {
-        List {
-            if saved.isEmpty {
-                EmptyNote(systemImage: "bookmark", title: "No saved meals",
-                          message: "Open any logged meal and choose Save as meal to reuse it in one tap.")
-            }
-            ForEach(saved) { s in
-                Button {
-                    items += s.items.map { var c = $0; c.id = UUID(); return c }
-                    s.useCount += 1; s.lastUsed = .now
-                } label: {
-                    HStack {
-                        Text(s.name)
-                        Spacer()
-                        Text("\(Int(s.items.reduce(0) { $0 + $1.nutrition.kcal })) kcal").foregroundStyle(Theme.secondaryText)
-                    }
-                }.buttonStyle(.plain)
-            }
-            .onDelete { $0.map { saved[$0] }.forEach(context.delete) }
-        }.scrollContentBackground(.hidden)
-    }
-
-    private var recentPane: some View {
-        List {
-            let recent = Dictionary(grouping: meals.flatMap(\.items), by: { $0.name.lowercased() })
-                .values.compactMap(\.first).prefix(25)
-            if recent.isEmpty {
-                EmptyNote(systemImage: "clock", title: "No recent foods", message: "Foods you log will show up here.")
-            }
-            ForEach(Array(recent)) { i in
-                Button { var c = i; c.id = UUID(); items.append(c) } label: {
-                    HStack { Text(i.name); Spacer(); Text("\(Int(i.grams)) g").foregroundStyle(Theme.secondaryText) }
-                }.buttonStyle(.plain)
-            }
-        }.scrollContentBackground(.hidden)
     }
 
     // MARK: Draft + save
@@ -304,17 +204,13 @@ struct AddFoodView: View {
                             .accessibilityLabel("Remove \(i.name)")
                     }.font(.footnote)
                 }
-                HStack {
-                    Picker("", selection: $mealType) { ForEach(MealType.allCases, id: \.self) { Text($0.title).tag($0) } }
-                    DatePicker("", selection: $at).labelsHidden()
-                }
-                Button("Save \(Int(draftTotal.kcal)) kcal, \(Int(draftTotal.proteinG)) g protein") {
+                Button("Save \(Int(draftTotal.kcal)) kcal") {
                     if isDuplicate { confirmDuplicate = true } else { save() }
                 }
                 .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
             }
         }
-        .padding().background(Theme.card)
+        .padding().background(items.isEmpty ? Color.clear : Theme.card)
     }
 
     private var originalText: String { items.map(\.name).joined(separator: ", ") }
@@ -328,10 +224,15 @@ struct AddFoodView: View {
         let conf = items.map(\.confidence).min() ?? .medium
         let src: Source = aiSource ? .aiEstimate : (items.allSatisfy(\.verified) ? .confirmed : .manual)
         context.insert(MealRecord(at: at, mealType: mealType, originalText: originalText, items: items, source: src, confidence: conf))
-        // Caffeine in a logged food or drink also lands in the caffeine log, labeled with where the number came from.
-        for i in items where i.consumed && (i.nutrition.caffeineMg ?? 0) > 0 {
-            context.insert(CaffeineRecord(at: at, name: i.name, servingMl: i.grams, mg: i.nutrition.caffeineMg!, mgSource: i.dataSource,
-                                          source: i.verified ? .confirmed : .aiEstimate))
+        // Caffeine in anything logged, food or drink, lands in the caffeine log with where the number came from.
+        for i in items where i.consumed {
+            if let mg = i.nutrition.caffeineMg, mg > 0 {
+                context.insert(CaffeineRecord(at: at, name: i.name, servingMl: i.grams, mg: mg, mgSource: i.dataSource,
+                                              source: i.verified ? .confirmed : .aiEstimate))
+            } else if let d = Caffeine.catalogMatch(i.name) {
+                context.insert(CaffeineRecord(at: at, name: d.name, servingMl: d.servingMl, mg: d.mg,
+                                              mgSource: "Typical value for \(d.name). Check your can.", source: .aiEstimate))
+            }
         }
         try? context.save()
         dismiss()
@@ -345,8 +246,8 @@ struct AddFoodView: View {
             defer { busy = false }
             do {
                 results = try await combined.search(text)
-                if results.isEmpty { error = "No matches. Try simpler words, or add it manually." }
-            } catch { self.error = "\(error.localizedDescription) You can still add the food manually." }
+                if results.isEmpty { error = "No matches. Try simpler words." }
+            } catch { self.error = error.localizedDescription }
         }
     }
 
@@ -355,11 +256,14 @@ struct AddFoodView: View {
         defer { busy = false }
         do {
             if let f = try await OpenFoodFactsClient().product(barcode: code) {
-                picked = f; grams = f.servingG ?? 100
+                let g = f.servingG ?? 100
+                items.append(FoodItem(name: f.name, brand: f.brand, grams: g, nutrition: f.nutrition(forGrams: g),
+                                      dataSource: f.source, verified: true, confidence: .high))
+                text = ""
             } else {
-                error = "Product not found or has no nutrition data. Add it manually from the label."
+                error = "Product not found. Try describing it instead."
             }
-        } catch { self.error = "\(error.localizedDescription) Try again, or add it manually." }
+        } catch { self.error = "\(error.localizedDescription) Try again, or describe it instead." }
     }
 
     private func portionSheet(_ f: ReferenceFood) -> some View {
@@ -372,7 +276,6 @@ struct AddFoodView: View {
                 }
                 let n = f.nutrition(forGrams: grams)
                 Text("\(Int(n.kcal)) kcal, \(Int(n.proteinG)) g protein, \(Int(n.carbsG)) g carbs, \(Int(n.fatG)) g fat")
-                Text("Values per 100 g from \(f.source).").font(.caption).foregroundStyle(Theme.secondaryText)
             }
             .navigationTitle("Portion")
             .navigationBarTitleDisplayMode(.inline)

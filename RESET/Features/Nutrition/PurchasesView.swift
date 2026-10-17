@@ -118,7 +118,7 @@ struct PurchasesView: View {
         .sheet(item: $eating) { d in
             let text = PurchaseRules.prefill(for: d.text, rules: rules)
             AddFoodView(initialItems: d.items.map { var i = $0; i.consumed = true; return i }, initialText: text,
-                        startWith: d.items.isEmpty ? .describe : .manual)
+                        startWith: .describe)
                 .onDisappear { markAteIfLogged(d) }
         }
     }

@@ -68,6 +68,6 @@ struct MealIdeasCard: View {
             }
             Text(MealSuggester.disclaimer).font(.caption2).foregroundStyle(Theme.secondaryText)
         }
-        .sheet(isPresented: $showDraft) { AddFoodView(initialItems: draft, startWith: .manual) }
+        .sheet(isPresented: $showDraft) { AddFoodView(initialItems: draft, startWith: .describe) }
     }
 }
