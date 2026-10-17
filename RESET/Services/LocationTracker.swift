@@ -14,7 +14,9 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
     private(set) var lastError: String?
 
     private let manager = CLLocationManager()
-    private var monitor: CLMonitor?
+    /// Only one CLMonitor with a given name may exist. Launch, foreground and saving a place all call start(),
+    /// so creation is shared through one task. Two instances crash CoreLocation.
+    private var monitorTask: Task<CLMonitor, Never>?
     private var listenTask: Task<Void, Never>?
     private var oneShot: CheckedContinuation<CLLocationCoordinate2D, Error>?
     private var context: ModelContext?
@@ -67,10 +69,9 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
         servicesEnabled = CLLocationManager.locationServicesEnabled()
         guard servicesEnabled, authorization == .authorizedAlways || authorization == .authorizedWhenInUse else { return }
 
-        // await cannot sit inside the autoclosure of ??, so create it explicitly.
-        let monitor: CLMonitor
-        if let existing = self.monitor { monitor = existing } else { monitor = await CLMonitor("reset.places") }
-        self.monitor = monitor
+        let task = monitorTask ?? Task { await CLMonitor("reset.places") }
+        monitorTask = task
+        let monitor = await task.value
         await syncPlaces(monitor: monitor, context: context)
 
         if listenTask == nil {

@@ -15,9 +15,10 @@ struct BodySection: View {
         Binding(get: { imperial ? Units.cmToIn(profile.heightCm) : profile.heightCm },
                 set: { profile.heightCm = imperial ? Units.inToCm($0) : $0 })
     }
-    private var target: Binding<Double> {
-        Binding(get: { (imperial ? profile.targetWeightKg.map(Units.kgToLb) : profile.targetWeightKg) ?? 0 },
-                set: { v in profile.targetWeightKg = v <= 0 ? nil : (imperial ? Units.lbToKg(v) : v) })
+    /// Optional, so an empty field stays empty while typing instead of snapping back to 0.
+    private var target: Binding<Double?> {
+        Binding(get: { imperial ? profile.targetWeightKg.map(Units.kgToLb) : profile.targetWeightKg },
+                set: { v in profile.targetWeightKg = v.flatMap { $0 > 0 ? (imperial ? Units.lbToKg($0) : $0) : nil } })
     }
     private var ageShared: Binding<Bool> {
         Binding(get: { profile.age != nil }, set: { profile.age = $0 ? (profile.age ?? 30) : nil })
