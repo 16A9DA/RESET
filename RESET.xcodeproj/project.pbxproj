@@ -275,6 +275,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RESET/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET AI";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to photograph meals and scan food barcodes. Photos are analyzed only if you turn on AI.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery. This data stays on your iPhone and is never used for advertising.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RE:SET can save walks you record in the app to Apple Health.";
@@ -309,6 +310,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RESET/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "RE:SET AI";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to photograph meals and scan food barcodes. Photos are analyzed only if you turn on AI.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "RE:SET reads steps, walking and running distance, workouts and sleep from Apple Health to show your activity and recovery. This data stays on your iPhone and is never used for advertising.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "RE:SET can save walks you record in the app to Apple Health.";
