@@ -56,3 +56,15 @@ private let shape = DayShape(wakeMinute: 7 * 60, bedMinute: 23 * 60)
     #expect(MealTiming.learned(planned, history: hist, shape: shape, on: day, calendar: cal).first?.time == at(10, 12))
     #expect(MealTiming.learned(planned, history: Array(hist.prefix(2)), shape: shape, on: day, calendar: cal).first?.time == at(10, 14))
 }
+
+private func food(_ name: String, kcal: Double, caffeine: Double? = nil) -> FoodItem {
+    FoodItem(name: name, grams: 100, nutrition: Nutrition(kcal: kcal, proteinG: 5, carbsG: 10, fatG: 5, caffeineMg: caffeine),
+             dataSource: "test", verified: true, confidence: .high)
+}
+
+@Test func eatCheckVerdicts() {
+    #expect(EatCheck.verdict(items: [food("rice", kcal: 300)], remainingKcal: 800, caffeineTodayMg: 0, hoursToBed: 10, allergies: []).level == .yes)
+    #expect(EatCheck.verdict(items: [food("cake", kcal: 900)], remainingKcal: 300, caffeineTodayMg: 0, hoursToBed: 10, allergies: []).level == .maybe)
+    #expect(EatCheck.verdict(items: [food("peanut bar", kcal: 100)], remainingKcal: 800, caffeineTodayMg: 0, hoursToBed: 10, allergies: ["Peanut"]).level == .no)
+    #expect(EatCheck.verdict(items: [food("cola", kcal: 100, caffeine: 40)], remainingKcal: 800, caffeineTodayMg: 0, hoursToBed: 4, allergies: []).level == .maybe)
+}

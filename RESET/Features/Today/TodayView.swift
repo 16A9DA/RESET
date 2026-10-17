@@ -27,7 +27,7 @@ final class AppRouter {
 }
 
 private enum QuickSheet: String, Identifiable {
-    case food, photo, barcode, checkIn
+    case food, photo, barcode, checkIn, canEat
     var id: String { rawValue }
 }
 
@@ -65,6 +65,7 @@ struct TodayView: View {
                         tile("Steps", s.steps.map { $0.formatted() }, icon: "figure.walk")
                         tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon")
                     }
+                    Button { sheet = .canEat } label: { row("Can I eat this?", icon: "questionmark.circle") }.buttonStyle(Press())
                     recoveryRow(s)
                     NavigationLink { ScrollView { WorkoutCard().padding() }.background(Theme.background).navigationTitle("Workout") } label: {
                         row("Workout", icon: "dumbbell")
@@ -95,6 +96,7 @@ struct TodayView: View {
                 case .photo: AddFoodView(startWith: .photo)
                 case .barcode: AddFoodView(startWith: .barcode)
                 case .checkIn: CheckInSheet()
+                case .canEat: CanIEatView()
                 }
             }
         }
