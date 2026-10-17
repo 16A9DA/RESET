@@ -39,7 +39,20 @@ enum SessionStore {
                 context.insert(s)
             }
         }
+        if place.category == .gym { logGymWorkouts(context: context, placeID: pid) }
         try? context.save()
+    }
+
+    /// A finished gym visit of 20 minutes or more counts as a strength workout, once.
+    private static func logGymWorkouts(context: ModelContext, placeID pid: UUID) {
+        let rows = (try? context.fetch(FetchDescriptor<TrackedSession>(predicate: #Predicate { $0.placeID == pid }))) ?? []
+        let known = Set(((try? context.fetch(FetchDescriptor<ActivityRecord>())) ?? []).compactMap(\.externalID))
+        for r in rows {
+            guard let end = r.end, r.status != .needsReview, end.timeIntervalSince(r.start) >= 20 * 60,
+                  !known.contains(r.id.uuidString) else { continue }
+            context.insert(ActivityRecord(kind: .strength, start: r.start, end: end, source: .auto, externalID: r.id.uuidString))
+            context.insert(WorkoutRecord(title: "Gym", start: r.start, minutes: Int(end.timeIntervalSince(r.start) / 60), completed: true))
+        }
     }
 
     static func flagStale(context: ModelContext, now: Date = .now) {

@@ -18,6 +18,8 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
     private var listenTask: Task<Void, Never>?
     private var oneShot: CheckedContinuation<CLLocationCoordinate2D, Error>?
     private var context: ModelContext?
+    /// iOS 18 only delivers monitor events in the background while a session is held.
+    private var session: AnyObject?
 
     override init() {
         authorization = manager.authorizationStatus
@@ -61,6 +63,7 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
     /// hand over events that happened while the app was not running.
     func start(context: ModelContext) async {
         self.context = context
+        if #available(iOS 18, *), session == nil, authorization == .authorizedAlways { session = CLServiceSession(authorization: .always) }
         servicesEnabled = CLLocationManager.locationServicesEnabled()
         guard servicesEnabled, authorization == .authorizedAlways || authorization == .authorizedWhenInUse else { return }
 

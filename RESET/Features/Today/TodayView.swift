@@ -58,7 +58,7 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     header(s, symptoms: symptoms)
-                    ForEach([SessionCategory.work, .university], id: \.self) { timeRow($0, s) }
+                    ForEach([SessionCategory.work, .university, .gym], id: \.self) { timeRow($0, s) }
                     foodCard(s)
                     HStack(spacing: 12) {
                         waterTile(s)
@@ -125,13 +125,14 @@ struct TodayView: View {
 
     /// Work and university fill themselves from place detection. Shown only when there is a goal today or time was recorded.
     @ViewBuilder private func timeRow(_ category: SessionCategory, _ s: DaySummary) -> some View {
-        let done = (category == .work ? s.workSeconds : s.universitySeconds) ?? 0
+        let now = Date.now
+        let done = SessionMath.totals(sessions.map(\.value), category: category, in: Day.interval(of: now), now: now).total
         let goal = profile?.goalSeconds(category)
         let here = sessions.contains { $0.category == category && $0.end == nil }
         if goal != nil || done > 0 || here {
             Card {
                 HStack {
-                    Label(category == .work ? "Work" : "University", systemImage: category == .work ? "briefcase" : "graduationcap")
+                    Label(category.rawValue.capitalized, systemImage: category == .work ? "briefcase" : (category == .gym ? "dumbbell" : "graduationcap"))
                         .font(.headline)
                     if here { Text("Here now").font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 2)
                         .background(Theme.accent, in: Capsule()).foregroundStyle(.black) }

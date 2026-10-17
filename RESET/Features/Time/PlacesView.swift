@@ -99,10 +99,26 @@ struct PlaceEditor: View {
     @State private var endMin = 17 * 60
     @State private var camera: MapCameraPosition = .automatic
     @State private var error: String?
+    @State private var query = ""
+    @State private var found: [MKMapItem] = []
 
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    HStack {
+                        TextField("Search a name, e.g. Anytime Fitness", text: $query).submitLabel(.search).onSubmit(search)
+                        Button("Search", action: search).disabled(query.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    ForEach(found, id: \.self) { item in
+                        Button { pick(item) } label: {
+                            VStack(alignment: .leading) {
+                                Text(item.name ?? "Place")
+                                if let a = item.placemark.title { Text(a).font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1) }
+                            }
+                        }.buttonStyle(.plain)
+                    }
+                } header: { Text("Find it") }
                 Section("Place") {
                     TextField("Name", text: $name)
                     Picker("Tracks", selection: $category) {
@@ -162,6 +178,24 @@ struct PlaceEditor: View {
             }
             .onAppear(perform: load)
         }
+    }
+
+    private func search() {
+        let req = MKLocalSearch.Request()
+        req.naturalLanguageQuery = query
+        if let c = coordinate { req.region = MKCoordinateRegion(center: c, latitudinalMeters: 20_000, longitudinalMeters: 20_000) }
+        Task {
+            found = (try? await MKLocalSearch(request: req).start().mapItems.prefix(5).map { $0 }) ?? []
+            if found.isEmpty { error = "Nothing found. Try the map instead." }
+        }
+    }
+
+    private func pick(_ item: MKMapItem) {
+        let c = item.placemark.coordinate
+        coordinate = c
+        if name.isEmpty { name = item.name ?? query }
+        camera = .region(MKCoordinateRegion(center: c, latitudinalMeters: 800, longitudinalMeters: 800))
+        found = []; error = nil
     }
 
     private func load() {
