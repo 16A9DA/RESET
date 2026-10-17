@@ -27,7 +27,7 @@ final class AppRouter {
 }
 
 private enum QuickSheet: String, Identifiable {
-    case food, photo, drink, workout, checkIn, workHours
+    case food, photo, barcode, checkIn
     var id: String { rawValue }
 }
 
@@ -46,7 +46,6 @@ struct TodayView: View {
     @Query private var sessions: [TrackedSession]
     @Query private var acts: [ActivityRecord]
     @Query private var workouts: [WorkoutRecord]
-    @AppStorage("walk.start") private var walkStart: Double = 0
     @State private var sheet: QuickSheet?
 
     private var profile: UserProfile? { profiles.first }
@@ -57,28 +56,35 @@ struct TodayView: View {
         let symptoms = checks.contains { $0.kind == .symptom && $0.at > Date.now.addingTimeInterval(-24 * 3600) }
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
+                VStack(spacing: 12) {
                     header(s, symptoms: symptoms)
-                    quickActions
-                    RecoveryCard()
-                    metricsGrid(s)
-                    nutritionCard(s)
-                    workCard(s)
-                    upcoming
-                    planCard
-                    NavigationLink { TimelineScreen() } label: {
-                        Card(title: "Timeline") { Text("Everything recorded today, with where it came from").foregroundStyle(Theme.secondaryText) }
-                    }.buttonStyle(.plain)
-                }.padding()
+                    ForEach([SessionCategory.work, .university], id: \.self) { timeRow($0, s) }
+                    foodCard(s)
+                    HStack(spacing: 12) {
+                        waterTile(s)
+                        tile("Steps", s.steps.map { $0.formatted() }, icon: "figure.walk")
+                        tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon")
+                    }
+                    recoveryRow(s)
+                    NavigationLink { ScrollView { WorkoutCard().padding() }.background(Theme.background).navigationTitle("Workout") } label: {
+                        row("Workout", icon: "dumbbell")
+                    }.buttonStyle(Press())
+                }
+                .padding(.horizontal).padding(.top, 8)
             }
             .background(Theme.background)
+            .safeAreaInset(edge: .bottom) { logBar }
             .navigationTitle("Today")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink { TimelineScreen() } label: { Image(systemName: "clock") }.accessibilityLabel("Timeline")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings and profile")
                 }
             }
             .task { await health.refresh(); await notifier.rebuild(context: context) }
+            .task { RecoverySnapshot.store(RecoverySnapshot.assess(context: context, profile: profile), context: context) }
             .task(id: [meals.count, waters.count, caffeines.count, acts.count, Int(health.todaySteps ?? -1)]) { WidgetBridge.publish(s) }
             .refreshable { await health.refresh() }
             .onAppear(perform: handleDeepLink)
@@ -87,10 +93,8 @@ struct TodayView: View {
                 switch which {
                 case .food: AddFoodView()
                 case .photo: AddFoodView(startWith: .photo)
-                case .drink: LogDrinkView()
-                case .workout: WorkoutSheet()
+                case .barcode: AddFoodView(startWith: .barcode)
                 case .checkIn: CheckInSheet()
-                case .workHours: NavigationStack { TimeTrackingView() }
                 }
             }
         }
@@ -111,116 +115,133 @@ struct TodayView: View {
 
     private func header(_ s: DaySummary, symptoms: Bool) -> some View {
         let hour = Calendar.current.component(.hour, from: .now)
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 4) {
             Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.subheadline).foregroundStyle(Theme.secondaryText)
-            Text(Priority.message(s, symptoms: symptoms, hour: hour)).font(.system(.title3, design: .rounded, weight: .semibold))
+            Text(Priority.message(s, symptoms: symptoms, hour: hour))
+                .font(.system(.title2, design: .rounded, weight: .semibold)).tracking(-0.3)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
     }
 
-    private var quickActions: some View {
-        let items: [(String, String, () -> Void)] = [
-            ("Log food", "fork.knife", { sheet = .food }),
-            ("Photo meal", "camera", { sheet = .photo }),
-            ("Drink", "cup.and.saucer", { sheet = .drink }),
-            ("+250 ml", "drop", { context.insert(WaterRecord(ml: Double(profile?.quickWaterMl[safe: 1] ?? 250))); try? context.save(); Task { await notifier.rebuild(context: context) } }),
-            ("Start walk", "figure.walk", { if walkStart == 0 { walkStart = Date.now.timeIntervalSince1970 }; router.tab = .activity }),
-            ("Workout", "dumbbell", { sheet = .workout }),
-            ("Fatigue", "bolt.heart", { sheet = .checkIn }),
-            ("Work hours", "clock", { sheet = .workHours }),
-            ("Ask coach", "sparkles", { router.tab = .coach }),
-        ]
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-            ForEach(items, id: \.0) { item in
-                Button(action: item.2) {
-                    VStack(spacing: 6) {
-                        Image(systemName: item.1).font(.title3)
-                        Text(item.0).font(.caption.weight(.medium)).lineLimit(1).minimumScaleFactor(0.8)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 64)
-                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }.buttonStyle(.plain)
+    /// Work and university fill themselves from place detection. Shown only when there is a goal today or time was recorded.
+    @ViewBuilder private func timeRow(_ category: SessionCategory, _ s: DaySummary) -> some View {
+        let done = (category == .work ? s.workSeconds : s.universitySeconds) ?? 0
+        let goal = profile?.goalSeconds(category)
+        let here = sessions.contains { $0.category == category && $0.end == nil }
+        if goal != nil || done > 0 || here {
+            Card {
+                HStack {
+                    Label(category == .work ? "Work" : "University", systemImage: category == .work ? "briefcase" : "graduationcap")
+                        .font(.headline)
+                    if here { Text("Here now").font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(Theme.accent, in: Capsule()).foregroundStyle(.black) }
+                    Spacer()
+                    Text(goal.map { "\(Fmt.hours(done)) of \(Fmt.hours($0))" } ?? Fmt.hours(done))
+                        .font(.system(.body, design: .rounded, weight: .semibold)).monospacedDigit()
+                }
+                if let goal { ProgressBar(fraction: done / goal) }
             }
         }
     }
 
-    private func metric(_ title: String, _ value: String?, unit: String = "", caption: String) -> some View {
-        Card(title: title) {
-            if let value { BigMetric(value: value, unit: unit, caption: caption) }
-            else { BigMetric(value: "Not recorded", caption: caption) }
-        }
-    }
-
-    private func metricsGrid(_ s: DaySummary) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
-            metric("Sleep", s.sleepHours.map { String(format: "%.1f", $0) }, unit: "h",
-                   caption: "Target \(String(format: "%g", s.sleepTargetHours)) h")
-            metric("Energy", s.energy.map(String.init), unit: "of 5",
-                   caption: s.fatigue.map { "Fatigue \($0) of 5" } ?? "Fatigue not recorded")
-            metric("Steps", s.steps.map { $0.formatted() },
-                   caption: s.steps == nil ? (health.authRequested ? "No data yet" : "Permission required") : (s.stepSource ?? ""))
-            metric("Activity", s.structuredActivityMinutes > 0 ? "\(Int(s.structuredActivityMinutes.rounded()))" : nil, unit: "min",
-                   caption: s.workouts.isEmpty ? "Walks and workouts" : s.workouts.joined(separator: ", "))
-            metric("Water", String(format: "%.1f", s.waterMl / 1000), unit: "L",
-                   caption: s.waterGoalMl.map { "Goal about \(String(format: "%.1f", $0 / 1000)) L" } ?? "No goal set")
-            metric("Caffeine", s.caffeineMg > 0 ? "\(Int(s.caffeineMg.rounded()))" : nil, unit: "mg", caption: "Roughly 400 mg is a commonly cited limit")
-        }
-    }
-
-    private func nutritionCard(_ s: DaySummary) -> some View {
-        Card(title: "Food") {
-            HStack(alignment: .top) {
+    private func foodCard(_ s: DaySummary) -> some View {
+        Card {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Food", systemImage: "fork.knife").font(.headline)
+                Spacer()
                 if s.calorieCounting {
-                    BigMetric(value: "\(Int(s.kcalConsumed.rounded()))", unit: "kcal",
-                              caption: s.kcalTarget.map { "Suggested about \(Int($0.rounded()))" } ?? "Target: Estimate unavailable")
-                    Spacer()
+                    Text("\(Int(s.kcalConsumed.rounded()))").font(.system(.title, design: .rounded, weight: .bold)).monospacedDigit()
+                    + Text(s.kcalTarget.map { " / \(Int($0.rounded())) kcal" } ?? " kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
                 }
-                BigMetric(value: "\(Int(s.proteinG.rounded()))", unit: "g protein", caption: "Target about \(Int(s.proteinTargetG.rounded())) g")
             }
             if s.calorieCounting, let t = s.kcalTarget { ProgressBar(fraction: s.kcalConsumed / t) }
-            if s.calorieCounting, let b = s.calorieBalance {
-                Text("Balance so far: \(Int(b.rounded())) kcal against estimated maintenance. Estimates only, and the day is not over.")
-                    .font(.footnote).foregroundStyle(Theme.secondaryText)
-            }
-            if s.mealsLogged == 0 { Text("No meals logged yet. That may just mean you have not logged.").font(.footnote).foregroundStyle(Theme.secondaryText) }
-            if s.estimatedItems > 0 { Text("\(s.estimatedItems) item(s) are estimates.").font(.caption).foregroundStyle(Theme.warn) }
-            if Calendar.current.component(.hour, from: .now) >= 19 {
-                Text(MealTiming.eveningSummary(kcal: s.kcalConsumed, proteinG: s.proteinG, targetKcal: s.calorieCounting ? s.kcalTarget : nil,
-                                               targetProtein: s.proteinTargetG, mealsLogged: s.mealsLogged))
-                    .font(.footnote).padding(.top, 4)
-            }
-        }
-    }
-
-    private func workCard(_ s: DaySummary) -> some View {
-        Card(title: "Work and university") {
             HStack {
-                BigMetric(value: s.workSeconds.map(Fmt.hours) ?? "Not recorded", caption: "Work today")
+                Text("Protein").foregroundStyle(Theme.secondaryText)
                 Spacer()
-                BigMetric(value: s.universitySeconds.map(Fmt.hours) ?? "Not recorded", caption: "University today")
-            }
-            Text("From place detection and timers. Detected times are estimates until you confirm them.").font(.caption).foregroundStyle(Theme.secondaryText)
-            let review = sessions.filter { $0.status == .needsReview }.count
-            if review > 0 { Text("\(review) session(s) need a quick review.").font(.footnote).foregroundStyle(Theme.warn) }
+                Text("\(Int(s.proteinG.rounded())) / \(Int(s.proteinTargetG.rounded())) g").monospacedDigit()
+            }.font(.subheadline)
         }
     }
 
-    @ViewBuilder private var upcoming: some View {
-        Card(title: "Upcoming reminders") {
-            if notifier.upcoming.isEmpty {
-                Text(notifier.canSchedule ? "Nothing scheduled right now." : "Notifications are off or not yet allowed.")
-                    .font(.footnote).foregroundStyle(Theme.secondaryText)
-            }
-            ForEach(Array(notifier.upcoming.prefix(4)), id: \.id) { r in
-                HStack {
-                    Text(r.title)
-                    Spacer()
-                    Text(r.fireDate.formatted(date: .omitted, time: .shortened)).foregroundStyle(Theme.secondaryText).monospacedDigit()
-                }.font(.subheadline)
-            }
-            NavigationLink("Reminder settings") { RemindersSettingsView() }.font(.footnote)
+    private func waterTile(_ s: DaySummary) -> some View {
+        let ml = Double(profile?.quickWaterMl[safe: 1] ?? 250)
+        return Button {
+            context.insert(WaterRecord(ml: ml)); try? context.save()
+            Task { await notifier.rebuild(context: context) }
+        } label: {
+            tileBody("Water", String(format: "%.1f L", s.waterMl / 1000), icon: "drop")
         }
+        .buttonStyle(Press())
+        .sensoryFeedback(.success, trigger: waters.count)
+        .accessibilityHint("Adds \(Int(ml)) millilitres")
     }
 
-    private var planCard: some View { WorkoutCard() }
+    private func tile(_ title: String, _ value: String?, icon: String) -> some View {
+        tileBody(title, value ?? "None", icon: icon)
+    }
+
+    private func tileBody(_ title: String, _ value: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: icon).foregroundStyle(Theme.accent)
+            Text(value).font(.system(.headline, design: .rounded, weight: .bold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(title).font(.caption).foregroundStyle(Theme.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func recoveryRow(_ s: DaySummary) -> some View {
+        Button { sheet = .checkIn } label: {
+            HStack {
+                Circle().fill(s.recoveryBand.color).frame(width: 12, height: 12)
+                Text("Recovery").font(.headline)
+                Spacer()
+                Text(s.recoveryBand.title).foregroundStyle(Theme.secondaryText)
+                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
+            }
+            .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }.buttonStyle(Press())
+    }
+
+    private func row(_ title: String, icon: String) -> some View {
+        HStack {
+            Label(title, systemImage: icon).font(.headline)
+            Spacer()
+            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
+        }
+        .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    /// One place to log anything you eat or drink. Floats over the content on a translucent layer.
+    private var logBar: some View {
+        HStack(spacing: 8) {
+            Button { sheet = .food } label: {
+                Label("Log food or drink", systemImage: "plus").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(Press())
+            .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
+            barButton("camera.fill", "Photo") { sheet = .photo }
+            barButton("barcode.viewfinder", "Barcode") { sheet = .barcode }
+        }
+        .padding(8).background(.ultraThinMaterial, in: Capsule())
+        .padding(.horizontal).padding(.bottom, 4)
+    }
+
+    private func barButton(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.headline).frame(width: 48, height: 48)
+        }
+        .buttonStyle(Press())
+        .background(Color.primary.opacity(0.12), in: Circle())
+        .accessibilityLabel(label)
+    }
+}
+
+/// Feedback on press-down, not release. Springs back without overshoot.
+struct Press: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.3, bounce: 0), value: configuration.isPressed)
+    }
 }

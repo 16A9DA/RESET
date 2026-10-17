@@ -12,11 +12,11 @@ private func summary(_ band: RecoveryBand, work: Double? = nil, sleep: Double? =
 
 @Test func demandingWorkdayMessageMatchesSpecExample() {
     let m = Priority.message(summary(.low, work: 10 * 3600), symptoms: false, hour: 20)
-    #expect(m == "Your priority today: recover from a demanding workday and get enough sleep.")
+    #expect(m == "Recover from a demanding workday and get enough sleep.")
 }
 
 @Test func symptomsBeatEverything() {
-    #expect(Priority.message(summary(.good), symptoms: true, hour: 9).contains("rest"))
+    #expect(Priority.message(summary(.good), symptoms: true, hour: 9).lowercased().contains("rest"))
 }
 
 @Test func unknownAsksForCheckIn() {

@@ -50,28 +50,28 @@ public struct DaySummary: Codable, Equatable, Sendable {
 public enum Priority {
     /// One sentence for the top of Today. Deterministic and rule ordered: safety, recovery, then habits.
     public static func message(_ s: DaySummary, symptoms: Bool, hour: Int) -> String {
-        if symptoms { return "Your priority today: rest and look after yourself. Skip hard training and get checked if symptoms continue." }
+        if symptoms { return "Rest and look after yourself. Skip hard training and get checked if symptoms continue." }
         let longWork = (s.workSeconds ?? 0) >= 9 * 3600
         let shortSleep = (s.sleepHours.map { $0 < s.sleepTargetHours - 1.5 }) ?? false
         switch s.recoveryBand {
         case .low:
-            if longWork { return "Your priority today: recover from a demanding workday and get enough sleep." }
-            if shortSleep { return "Your priority today: an easy day and an earlier night to make up for short sleep." }
-            return "Your priority today: take it easy and let your body recover."
+            if longWork { return "Recover from a demanding workday and get enough sleep." }
+            if shortSleep { return "An easy day and an earlier night to make up for short sleep." }
+            return "Take it easy and let your body recover."
         case .unknown:
-            return "Your priority today: log last night's sleep and a quick check-in so I can tailor the day."
+            return "Log last night's sleep and a quick check-in so I can tailor the day."
         default: break
         }
         if let goal = s.waterGoalMl, hour >= 15, s.waterMl < goal * 0.4 {
-            return "Your priority today: catch up on water over the next few hours."
+            return "Catch up on water over the next few hours."
         }
         if hour >= 17, s.proteinTargetG > 0, s.proteinG < s.proteinTargetG * 0.5, s.mealsLogged > 0 {
-            return "Your priority today: get a solid protein source into your evening meal."
+            return "Get a solid protein source into your evening meal."
         }
         if s.recoveryBand == .good && s.workouts.isEmpty && s.structuredActivityMinutes < 20 {
-            return "Your priority today: fit in your planned workout or a good walk."
+            return "Fit in your planned workout or a good walk."
         }
-        return "Your priority today: keep the basics steady. Water, regular meals and an on-time bedtime."
+        return "Keep the basics steady. Water, regular meals and an on-time bedtime."
     }
 }
 
