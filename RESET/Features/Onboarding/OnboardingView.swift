@@ -38,12 +38,13 @@ struct OnboardingView: View {
                 Text("RE:SET AI")
                     .font(.system(size: 44, weight: .heavy, design: .rounded))
                     .foregroundStyle(Theme.accent)
-                Text("Your phone collects the data. The app turns it into simple, honest daily guidance.")
+                Text("Your phone does the tracking. You get one clear next step.")
                     .font(.title3)
-                Card(title: "Good to know") {
-                    Text("Calorie needs, energy use, sleep and food photo results are estimates. They are meant to guide habits, not to diagnose or treat anything.")
-                    Text("Every question after this one is optional, and you can change any answer later in Settings. Without a detail, RE:SET shows a clearly labeled general estimate.")
-                    Text("Your data stays on this iPhone unless you set up an AI service.")
+                Text("Estimates only, not medical advice. Your data stays on this iPhone.")
+                    .font(.subheadline).foregroundStyle(Theme.secondaryText)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("By continuing you agree to the").font(.footnote).foregroundStyle(Theme.secondaryText)
+                    LegalLinks()
                 }
             }
             .padding()
