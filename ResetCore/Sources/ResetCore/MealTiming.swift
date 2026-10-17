@@ -41,6 +41,22 @@ public enum MealTiming {
         return out.sorted { $0.time < $1.time }
     }
 
+    /// Moves each slot to the time you usually eat that meal. Needs at least 3 logs of that type in the history,
+    /// otherwise the planned time stays. A learned time outside waking hours is ignored.
+    public static func learned(_ slots: [MealSlot], history: [(at: Date, type: MealType)], shape: DayShape, on day: Date,
+                               calendar: Calendar = .current) -> [MealSlot] {
+        let w = shape.window(on: day, calendar: calendar)
+        let start = calendar.startOfDay(for: day)
+        return slots.map { slot in
+            let mins = history.filter { $0.type == slot.type && !calendar.isDate($0.at, inSameDayAs: day) }
+                .map { calendar.component(.hour, from: $0.at) * 60 + calendar.component(.minute, from: $0.at) }.sorted()
+            guard mins.count >= 3 else { return slot }
+            let t = start.addingTimeInterval(Double(mins[mins.count / 2]) * 60)
+            guard w.contains(t) else { return slot }
+            return MealSlot(type: slot.type, time: t)
+        }.sorted { $0.time < $1.time }
+    }
+
     /// A slot counts as covered when any meal was logged near it, or one of the same type was logged that day.
     public static func isCovered(_ slot: MealSlot, logs: [(at: Date, type: MealType)], window: TimeInterval = 90 * 60) -> Bool {
         logs.contains { abs($0.at.timeIntervalSince(slot.time)) <= window || $0.type == slot.type }

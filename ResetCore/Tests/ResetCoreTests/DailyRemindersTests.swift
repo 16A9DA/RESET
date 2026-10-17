@@ -45,3 +45,14 @@ private let shape = DayShape(wakeMinute: 7 * 60, bedMinute: 23 * 60)
     #expect(DailyReminders.checkIn(shape: shape, hasCheckInToday: false, now: at(8), days: 1, calendar: cal).first?.fireDate == at(21))
     #expect(DailyReminders.checkIn(shape: shape, hasCheckInToday: false, now: at(22), days: 1, calendar: cal).isEmpty)
 }
+
+@Test func mealSlotMovesToUsualTime() {
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
+    let day = cal.date(from: DateComponents(year: 2026, month: 3, day: 10))!
+    func at(_ d: Int, _ h: Int) -> Date { cal.date(from: DateComponents(year: 2026, month: 3, day: d, hour: h))! }
+    let shape = DayShape(wakeMinute: 7 * 60, bedMinute: 23 * 60)
+    let planned = [MealSlot(type: .lunch, time: at(10, 14))]
+    let hist = [(at: at(5, 12), type: MealType.lunch), (at: at(6, 12), type: .lunch), (at: at(7, 12), type: .lunch)]
+    #expect(MealTiming.learned(planned, history: hist, shape: shape, on: day, calendar: cal).first?.time == at(10, 12))
+    #expect(MealTiming.learned(planned, history: Array(hist.prefix(2)), shape: shape, on: day, calendar: cal).first?.time == at(10, 14))
+}
