@@ -69,7 +69,7 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
         servicesEnabled = CLLocationManager.locationServicesEnabled()
         guard servicesEnabled, authorization == .authorizedAlways || authorization == .authorizedWhenInUse else { return }
 
-        let task = monitorTask ?? Task { await CLMonitor("reset.places") }
+        let task = monitorTask ?? Task { await CLMonitor("resetplaces") }
         monitorTask = task
         let monitor = await task.value
         await syncPlaces(monitor: monitor, context: context)
