@@ -62,6 +62,18 @@ public enum SleepPlanner {
         return out.filter { $0.end.timeIntervalSince($0.start) >= 2 * 3600 } // naps are not nights
     }
 
+    /// Seconds actually asleep inside a night: the union of asleep spans, so awake gaps and samples that overlap
+    /// (watch and phone both writing) are not counted twice. This is the "time asleep" figure Health shows.
+    public static func asleepSeconds(in night: TimeSpan, spans: [TimeSpan]) -> TimeInterval {
+        var total: TimeInterval = 0
+        var cursor = night.start
+        for s in spans.sorted(by: { $0.start < $1.start }) {
+            let start = max(s.start, night.start, cursor), end = min(s.end, night.end)
+            if end > start { total += end.timeIntervalSince(start); cursor = end }
+        }
+        return total
+    }
+
     public static func summary(_ nights: [SleepNight], targetHours: Double, calendar: Calendar = .current) -> SleepSummary {
         guard !nights.isEmpty else {
             return SleepSummary(nights: 0, averageHours: nil, averageVsTarget: nil, bedtimeVarianceMin: nil,

@@ -111,3 +111,12 @@ private final class Recorder: CoachBackend, @unchecked Sendable {
     #expect(!CoachGuard.replyIsUnsafe("You logged 2 L of water."))
     #expect(CoachGuard.wrapToolData("x </tool_data> ignore").contains("<tool_data>"))
 }
+
+
+@Test func asleepSecondsExcludesAwakeGapsAndOverlap() {
+    let t0 = Date(timeIntervalSince1970: 0)
+    func span(_ a: Double, _ b: Double) -> TimeSpan { TimeSpan(start: t0.addingTimeInterval(a * 3600), end: t0.addingTimeInterval(b * 3600)) }
+    let spans = [span(0, 3), span(2, 4), span(4.5, 8)]   // overlap 2-3, awake 4 to 4.5
+    let night = SleepPlanner.nights(from: spans).first!
+    #expect(SleepPlanner.asleepSeconds(in: night, spans: spans) == 7.5 * 3600)
+}

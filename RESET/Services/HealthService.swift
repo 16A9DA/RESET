@@ -156,13 +156,27 @@ final class HealthService {
         guard let samples = try? await desc.result(for: store) else { return }
         let asleepValues: Set<Int> = [HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue, HKCategoryValueSleepAnalysis.asleepCore.rawValue,
                                       HKCategoryValueSleepAnalysis.asleepDeep.rawValue, HKCategoryValueSleepAnalysis.asleepREM.rawValue]
-        let spans = samples.filter { asleepValues.contains($0.value) }.map { TimeSpan(start: $0.startDate, end: $0.endDate) }
-        let nights = SleepPlanner.nights(from: spans)
+        func spans(_ values: Set<Int>) -> [TimeSpan] {
+            samples.filter { values.contains($0.value) }.map { TimeSpan(start: $0.startDate, end: $0.endDate) }
+        }
+        // Like Health: use asleep stages when a source wrote them, otherwise fall back to time in bed.
+        var asleep = spans(asleepValues)
+        if asleep.isEmpty { asleep = spans([HKCategoryValueSleepAnalysis.inBed.rawValue]) }
+        let nights = SleepPlanner.nights(from: asleep)
         let existing = (try? context.fetch(FetchDescriptor<SleepRecord>())) ?? []
         for n in nights {
             let day = Calendar.current.startOfDay(for: n.end)
-            if existing.contains(where: { Calendar.current.isDate($0.day, inSameDayAs: day) }) { continue }
-            context.insert(SleepRecord(day: day, asleepAt: n.start, wokeAt: n.end, source: .imported))
+            let seconds = SleepPlanner.asleepSeconds(in: n, spans: asleep)
+            if let record = existing.first(where: { Calendar.current.isDate($0.day, inSameDayAs: day) }) {
+                // Health keeps adding to a night until you wake. Refresh imported nights, never ones typed in by hand.
+                if record.source == .imported {
+                    record.asleepAt = n.start; record.wokeAt = n.end; record.asleepSeconds = seconds
+                }
+                continue
+            }
+            let record = SleepRecord(day: day, asleepAt: n.start, wokeAt: n.end, source: .imported)
+            record.asleepSeconds = seconds
+            context.insert(record)
         }
         try? context.save()
     }

@@ -87,11 +87,13 @@ final class SleepRecord {
     /// 1...5, nil if not reported.
     var quality: Int?
     var source: Source
+    /// Time actually asleep, as Health reports it (awake gaps excluded). nil for nights typed in by hand.
+    var asleepSeconds: Double?
     init(day: Date, asleepAt: Date, wokeAt: Date, quality: Int? = nil, source: Source = .manual) {
         id = UUID(); self.day = day; self.asleepAt = asleepAt; self.wokeAt = wokeAt
         self.quality = quality; self.source = source
     }
-    var hours: Double { max(0, wokeAt.timeIntervalSince(asleepAt)) / 3600 }
+    var hours: Double { asleepSeconds.map { $0 / 3600 } ?? max(0, wokeAt.timeIntervalSince(asleepAt)) / 3600 }
 }
 
 @Model
