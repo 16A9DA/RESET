@@ -97,6 +97,8 @@ struct CoachView: View {
     @Environment(\.modelContext) private var context
     @Environment(HealthService.self) private var health
     @Environment(CoachModel.self) private var model
+    @Environment(AppRouter.self) private var router
+    @FocusState private var inputFocused: Bool
     @Query(sort: \ChatMessage.at) private var messages: [ChatMessage]
     @Query private var profiles: [UserProfile]
     @State private var input = ""
@@ -119,6 +121,7 @@ struct CoachView: View {
                             if let e = model.error { Text(e).font(.footnote).foregroundStyle(Theme.low) }
                         }.padding()
                     }
+                    .scrollDismissesKeyboard(.interactively)
                     .onChange(of: messages.count) { _, _ in if let last = messages.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } } }
                 }
                 inputBar
@@ -126,9 +129,18 @@ struct CoachView: View {
             .background(GlassBackdrop())
             .navigationTitle("AI Coach")
             .toolbar {
-                Menu {
-                    Button("Clear conversation", role: .destructive) { messages.forEach(context.delete); try? context.save() }
-                } label: { Image(systemName: "ellipsis.circle") }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { inputFocused = false; router.tab = .today } label: { Label("Back", systemImage: "chevron.left") }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Clear conversation", role: .destructive) { messages.forEach(context.delete); try? context.save() }
+                    } label: { Image(systemName: "ellipsis.circle") }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { inputFocused = false }
+                }
             }
             .sheet(item: $editing) { d in AddFoodView(initialItems: d.items, initialText: d.text) }
         }
@@ -194,6 +206,7 @@ struct CoachView: View {
         HStack(alignment: .bottom) {
             TextField("Message the AI coach", text: $input, axis: .vertical).lineLimit(1...4)
                 .padding(10).glass(18)
+                .focused($inputFocused)
                 .submitLabel(.send).onSubmit { send(input) }
             Button { send(input) } label: { Image(systemName: "arrow.up.circle.fill").font(.title) }
                 .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty || model.busy)
