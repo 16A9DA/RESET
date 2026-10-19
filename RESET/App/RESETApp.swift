@@ -54,7 +54,7 @@ struct RESETApp: App {
         }
     }
 
-    static let refreshID = "com.reset.ai.refresh"
+    static let refreshID = "com.rayyan.reset.refresh"
 
     static func scheduleRefresh() {
         let req = BGAppRefreshTaskRequest(identifier: refreshID)

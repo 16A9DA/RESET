@@ -6,7 +6,7 @@ import WidgetKit
 /// widget stays tiny. The app publishes a small snapshot, and widget button taps are queued here until the app opens.
 enum AppGroup {
     /// Must match the App Groups capability on BOTH targets. If you change the bundle id, change this and both entitlements.
-    static let id = "group.com.reset.ai"
+    static let id = "group.com.rayyan.reset"
     static var defaults: UserDefaults? { UserDefaults(suiteName: id) }
 }
 

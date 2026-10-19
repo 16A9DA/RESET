@@ -69,7 +69,7 @@ open RESET.xcodeproj
 
 1. Select the RESET target, Signing and Capabilities, choose your Team.
 2. Change the bundle identifier to something unique.
-3. Add the App Groups capability to both RESET and RESETWidgets with `group.com.reset.ai`. If you change the id, change it in `Shared/WidgetShared.swift` and both entitlement files.
+3. Add the App Groups capability to both RESET and RESETWidgets with `group.com.rayyan.reset`. If you change the id, change it in `Shared/WidgetShared.swift` and both entitlement files.
 4. Confirm HealthKit and Background Modes (Location updates, Background fetch).
 5. Run on a simulator or a connected iPhone.
 

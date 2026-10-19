@@ -4,13 +4,13 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.reset.ai.refresh</string>
+		<string>com.rayyan.reset.refresh</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.reset.ai.widgets</string>
+			<string>com.rayyan.reset.widgets</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>resetai</string>

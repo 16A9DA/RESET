@@ -29,3 +29,18 @@ node_modules/
 # Markdown stays local. Only the README is tracked.
 *.md
 !README.md
+
+# Signing and local tooling
+*.mobileprovision
+*.p12
+*.cer
+*.certSigningRequest
+*.xcconfig.local
+*.xcuserdatad/
+*.log
+.vscode/
+.idea/
+.serena/
+.headroom/
+*.sqlite
+*.db

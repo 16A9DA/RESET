@@ -3,7 +3,7 @@ import Security
 
 /// API keys live here, never in source, the bundle or UserDefaults.
 enum Keychain {
-    private static let service = "com.reset.ai.keys"
+    private static let service = "com.rayyan.reset.keys"
 
     static func get(_ key: String) -> String? {
         let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
