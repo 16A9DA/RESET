@@ -164,7 +164,6 @@ struct PlaceEditor: View {
                         DatePicker("From", selection: $startMin.asTimeOfDay(), displayedComponents: .hourAndMinute)
                         DatePicker("To", selection: $endMin.asTimeOfDay(), displayedComponents: .hourAndMinute)
                     }
-                    Stepper("Short exits count as a break up to \(tolerance) min", value: $tolerance, in: 5...90, step: 5)
                     Toggle("Remind me on arrival", isOn: $remind)
                 }
             }

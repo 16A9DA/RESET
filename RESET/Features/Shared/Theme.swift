@@ -99,6 +99,20 @@ struct EmptyNote: View {
     }
 }
 
+/// One macro line: name on the left, eaten / goal on the right. Goal shows only when the plan has one.
+struct MacroRow: View {
+    let name: String
+    let eaten: Double
+    let goal: Double
+    var body: some View {
+        HStack {
+            Text(name).foregroundStyle(Theme.secondaryText)
+            Spacer()
+            Text(goal > 0 ? "\(Int(eaten.rounded())) / \(Int(goal.rounded())) g" : "\(Int(eaten.rounded())) g").monospacedDigit()
+        }.font(.subheadline)
+    }
+}
+
 struct ProgressBar: View {
     var fraction: Double
     var tint: Color = Theme.accent

@@ -28,7 +28,7 @@ enum DaySummaryBuilder {
         let r = RecoverySnapshot.assess(context: context, profile: profile)
         let steps = ActivityMath.dailySteps(system: isToday ? health?.todaySteps : nil, fallbackFromSpans: [])
 
-        return DaySummary(
+        var summary = DaySummary(
             date: day, sleepHours: sleep?.hours, sleepTargetHours: profile?.sleepTargetHours ?? 8,
             energy: checks.first { $0.kind == .energy }?.value, fatigue: checks.first { $0.kind == .fatigue }?.value,
             steps: steps, stepSource: isToday ? health?.stepSource : nil,
@@ -39,6 +39,9 @@ enum DaySummaryBuilder {
             waterMl: water, waterGoalMl: profile?.effectiveWaterGoalMl, caffeineMg: caffeine,
             workSeconds: seconds(.work), universitySeconds: seconds(.university),
             recoveryBand: r.band, recoveryReasons: r.reasons)
+        summary.carbsG = nut.total.carbsG; summary.carbsTargetG = plan?.carbsG ?? 0
+        summary.fatG = nut.total.fatG; summary.fatTargetG = plan?.fatG ?? 0
+        return summary
     }
 
     @MainActor

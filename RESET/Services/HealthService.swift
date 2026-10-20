@@ -18,6 +18,10 @@ struct DaySteps: Identifiable {
 final class HealthService {
     private let store = HKHealthStore()
     private let pedometer = CMPedometer()
+    private let activity = CMMotionActivityManager()
+    private static let bucket: TimeInterval = 300
+    /// No person walks or runs faster than this, so a bucket above it is vehicle vibration.
+    private static let maxStepsPerSecond = 4.0
     private let requestedKey = "health.authRequested"
 
     private(set) var todaySteps: Int?
@@ -51,16 +55,27 @@ final class HealthService {
         await refresh()
     }
 
+    /// Health only asks for types it has not asked about yet. Without this, a type added in an update
+    /// (sleep) is never granted for people who already answered the first prompt, and imports stay empty.
+    func ensureAccess() async {
+        guard available, authRequested else { return }
+        let status = try? await store.statusForAuthorizationRequest(toShare: [HKObjectType.workoutType()], read: readTypes)
+        if status == .shouldRequest { await requestAccess() }
+    }
+
     func refresh() async {
         let start = Calendar.current.startOfDay(for: .now)
         var steps: Int?
         var source = "Not recorded"
 
         if available, authRequested {
-            steps = try? await sumQuantity(.stepCount, unit: .count(), from: start, to: .now).map { Int($0) }
-            distanceM = try? await sumQuantity(.distanceWalkingRunning, unit: .meter(), from: start, to: .now)
+            let weekStart = Calendar.current.date(byAdding: .day, value: -6, to: start) ?? start
+            let vehicle = await vehicleSpans(from: weekStart, to: .now)
+            week = await weekSteps(from: weekStart, vehicle: vehicle)
+            if let today = week.last, today.steps > 0 { steps = today.steps }
+            distanceM = try? await cleanBuckets(.distanceWalkingRunning, unit: .meter(), from: start, vehicle: vehicle)
+                .reduce(0) { $0 + $1.value }
             if steps != nil { source = "Apple Health" }
-            week = await weekSteps()
         }
         if steps == nil, let motion = await motionSteps(from: start, to: .now) {
             steps = motion; source = "iPhone motion sensor"
@@ -97,30 +112,51 @@ final class HealthService {
 
     // MARK: HealthKit queries
 
-    private func sumQuantity(_ id: HKQuantityTypeIdentifier, unit: HKUnit, from: Date, to: Date) async throws -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: id) else { return nil }
-        let predicate = HKQuery.predicateForSamples(withStart: from, end: to)
-        let desc = HKStatisticsQueryDescriptor(predicate: .quantitySample(type: type, predicate: predicate),
-                                               options: .cumulativeSum)
-        let stats = try await desc.result(for: store)
-        return stats?.sumQuantity()?.doubleValue(for: unit)
-    }
-
-    private func weekSteps() async -> [DaySteps] {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return [] }
-        let cal = Calendar.current
-        let end = cal.startOfDay(for: .now).addingTimeInterval(86_400)
-        guard let start = cal.date(byAdding: .day, value: -6, to: cal.startOfDay(for: .now)) else { return [] }
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+    /// Health merges sources per bucket. Buckets are cut down by the share spent in a vehicle and dropped
+    /// when the rate is impossible on foot, so a scooter or bus ride does not count as walking.
+    private func cleanBuckets(_ id: HKQuantityTypeIdentifier, unit: HKUnit, from: Date, vehicle: [TimeSpan]) async throws -> [(start: Date, value: Double)] {
+        guard let type = HKQuantityType.quantityType(forIdentifier: id) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: from, end: .now)
         let desc = HKStatisticsCollectionQueryDescriptor(
             predicate: .quantitySample(type: type, predicate: predicate), options: .cumulativeSum,
-            anchorDate: start, intervalComponents: DateComponents(day: 1))
-        guard let result = try? await desc.result(for: store) else { return [] }
-        var out: [DaySteps] = []
-        result.enumerateStatistics(from: start, to: end) { stats, _ in
-            out.append(DaySteps(day: stats.startDate, steps: Int(stats.sumQuantity()?.doubleValue(for: .count()) ?? 0)))
+            anchorDate: Calendar.current.startOfDay(for: from), intervalComponents: DateComponents(minute: 5))
+        let result = try await desc.result(for: store)
+        var out: [(Date, Double)] = []
+        result.enumerateStatistics(from: from, to: .now) { stats, _ in
+            guard var v = stats.sumQuantity()?.doubleValue(for: unit), v > 0 else { return }
+            let end = stats.startDate.addingTimeInterval(Self.bucket)
+            let inCar = vehicle.reduce(0.0) {
+                $0 + max(0, min(end, $1.end).timeIntervalSince(max(stats.startDate, $1.start)))
+            }
+            v *= max(0, 1 - inCar / Self.bucket)
+            if id == .stepCount, v > Self.maxStepsPerSecond * Self.bucket { return }
+            out.append((stats.startDate, v))
         }
         return out
+    }
+
+    private func weekSteps(from start: Date, vehicle: [TimeSpan]) async -> [DaySteps] {
+        guard let buckets = try? await cleanBuckets(.stepCount, unit: .count(), from: start, vehicle: vehicle) else { return [] }
+        let cal = Calendar.current
+        return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: start) }.map { day in
+            let n = buckets.filter { cal.isDate($0.start, inSameDayAs: day) }.reduce(0) { $0 + $1.value }
+            return DaySteps(day: day, steps: Int(n))
+        }
+    }
+
+    /// Spans CoreMotion classed as driving or cycling. A scooter or bus shows up as one of these.
+    private func vehicleSpans(from: Date, to: Date) async -> [TimeSpan] {
+        guard CMMotionActivityManager.isActivityAvailable(), CMMotionActivityManager.authorizationStatus() != .denied else { return [] }
+        return await withCheckedContinuation { cont in
+            activity.queryActivityStarting(from: from, to: to, to: .main) { list, _ in
+                let list = list ?? []
+                var spans: [TimeSpan] = []
+                for (i, a) in list.enumerated() where (a.automotive || a.cycling) && a.confidence != .low {
+                    spans.append(TimeSpan(start: a.startDate, end: i + 1 < list.count ? list[i + 1].startDate : to))
+                }
+                cont.resume(returning: spans)
+            }
+        }
     }
 
     /// Workouts recorded by other apps or devices, imported once by HealthKit UUID.

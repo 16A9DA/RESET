@@ -94,11 +94,9 @@ struct NutritionView: View {
             }
             if counting, let t = plan?.targetKcal { ProgressBar(fraction: totals.total.kcal / t) }
             if counting {
-                HStack {
-                    Text("Protein").foregroundStyle(Theme.secondaryText)
-                    Spacer()
-                    Text("\(Int(totals.total.proteinG.rounded())) / \(Int((plan?.proteinG ?? 0).rounded())) g").monospacedDigit()
-                }.font(.subheadline)
+                MacroRow(name: "Protein", eaten: totals.total.proteinG, goal: plan?.proteinG ?? 0)
+                MacroRow(name: "Carbs", eaten: totals.total.carbsG, goal: plan?.carbsG ?? 0)
+                MacroRow(name: "Fat", eaten: totals.total.fatG, goal: plan?.fatG ?? 0)
             }
         }
     }

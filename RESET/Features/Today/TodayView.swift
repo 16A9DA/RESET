@@ -164,11 +164,9 @@ struct TodayView: View {
                 }
             }
             if s.calorieCounting, let t = s.kcalTarget { ProgressBar(fraction: s.kcalConsumed / t) }
-            HStack {
-                Text("Protein").foregroundStyle(Theme.secondaryText)
-                Spacer()
-                Text("\(Int(s.proteinG.rounded())) / \(Int(s.proteinTargetG.rounded())) g").monospacedDigit()
-            }.font(.subheadline)
+            MacroRow(name: "Protein", eaten: s.proteinG, goal: s.proteinTargetG)
+            MacroRow(name: "Carbs", eaten: s.carbsG, goal: s.carbsTargetG)
+            MacroRow(name: "Fat", eaten: s.fatG, goal: s.fatTargetG)
         }
     }
 

@@ -31,6 +31,7 @@ struct RESETApp: App {
                     notifier.setup(container: container)
                     coach.configure(container: container, health: health)
                     WidgetBridge.drain(context: container.mainContext)
+                    await health.ensureAccess()
                     health.startBackgroundSync(context: container.mainContext)
                     await health.importSleep(since: Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .now, context: container.mainContext)
                     await tracker.start(context: container.mainContext)

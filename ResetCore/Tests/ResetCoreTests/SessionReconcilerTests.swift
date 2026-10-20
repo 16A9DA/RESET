@@ -20,16 +20,15 @@ private func run(_ events: [PlaceEventValue]) -> [SessionValue] {
     #expect(tot.estimated == 8 * 3600 && tot.confirmed == 0)
 }
 
-@Test func lunchBreakWithinToleranceMerges() {
+@Test func stepOutAndBackSameDayMergesAndCountsGap() {
     let s = run([ev(.enter, t(9)), ev(.exit, t(12)), ev(.enter, t(12, 15)), ev(.exit, t(17))])
-    #expect(s.count == 1)
-    #expect(s[0].breaks == [TimeSpan(start: t(12), end: t(12, 15))])
+    #expect(s.count == 1 && s[0].breaks.isEmpty)
     let tot = SessionMath.totals(s, category: .work, in: Day.interval(of: t(9), calendar: cal), now: t(18))
-    #expect(tot.total == 8 * 3600 - 15 * 60)
+    #expect(tot.total == 8 * 3600)
 }
 
-@Test func longGapIsNewSession() {
-    let s = run([ev(.enter, t(9)), ev(.exit, t(12)), ev(.enter, t(13)), ev(.exit, t(17))])
+@Test func returnOnLaterDayIsNewSession() {
+    let s = run([ev(.enter, t(9)), ev(.exit, t(12)), ev(.enter, t(9, day: 4)), ev(.exit, t(17, day: 4))])
     #expect(s.count == 2)
 }
 

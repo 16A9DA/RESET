@@ -62,13 +62,12 @@ public enum Reconciler {
                 out[i].status = .needsReview // enter after a very long open session: exit was missed
             }
 
-            let tolerance = TimeInterval(rule.breakToleranceMin * 60)
             let recent = mine
                 .filter { out[$0].end != nil && out[$0].status != .needsReview }
                 .max { out[$0].end! < out[$1].end! }
             if let r = recent, let end = out[r].end,
-               event.at >= end, event.at.timeIntervalSince(end) <= tolerance {
-                out[r].breaks.append(TimeSpan(start: end, end: event.at))
+               event.at >= end, Calendar.current.isDate(event.at, inSameDayAs: end) {
+                // Stepping out and back the same day (e.g. the yard behind the office) is still the same session.
                 out[r].end = nil
             } else {
                 out.append(SessionValue(category: rule.category, placeID: rule.id, start: event.at))

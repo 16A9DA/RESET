@@ -17,6 +17,10 @@ public struct DaySummary: Codable, Equatable, Sendable {
     public var calorieCounting: Bool
     public var proteinG: Double
     public var proteinTargetG: Double
+    public var carbsG = 0.0
+    public var carbsTargetG = 0.0
+    public var fatG = 0.0
+    public var fatTargetG = 0.0
     public var mealsLogged: Int
     public var estimatedItems: Int
     public var waterMl: Double
