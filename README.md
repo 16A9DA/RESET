@@ -6,14 +6,19 @@
 
 <p align="center">A health app for a hectic schedule. It tracks by itself and tells you one next step.</p>
 
+<p align="center">
+  Source available. All rights reserved.
+</p>
+
 ## Overview
 
 Native iPhone app. SwiftUI, SwiftData, local first. No account, no server. Your phone collects the data. Rules turn it into guidance. AI only helps read food and answer chat.
 
 Design rule: the app removes work. It never adds it.
 
-* Work, university and gym time record themselves from places you save.
-* Steps, workouts and sleep come from Apple Health.
+* Work, university and gym time record themselves from places you save. Step out and come back the same day and the session continues.
+* Steps, workouts and sleep come from Apple Health. Steps ignore time spent driving or cycling, so a bus or scooter ride does not count as walking.
+* Sleep can also be logged by hand if Health has none.
 * Food is logged by describing it, photographing it or scanning a barcode.
 * Reminders follow your own habits, such as the time you usually eat lunch.
 * Missing data shows as missing. Nothing is guessed. Nothing is shaming.
@@ -23,7 +28,7 @@ Design rule: the app removes work. It never adds it.
 ### Today
 * One priority sentence.
 * Work, university and gym rows. Each shows start to end and the total, for example `09:02 to 17:40` and `8h 38m`.
-* Food, water, steps, sleep and recovery at a glance.
+* Food with protein, carbs and fat against your guide. Water, steps, sleep and recovery in Health style tiles with goal rings.
 * Floating log bar: describe, photo, barcode.
 * Can I eat this?
 
@@ -57,7 +62,7 @@ Design rule: the app removes work. It never adds it.
 * Calorie target: Mifflin St Jeor, activity multiplier, capped deficit. Protein default is 1.8 g per kg.
 * Everything calorie related is an estimate and is labelled as one.
 
-Full internals are in `BUILD.md` on disk. It is not tracked in git.
+* Recovery is a rule based lifestyle indicator. It weighs recent sleep, energy and fatigue check-ins, workload, hard sessions, and yesterday's water, food intake and steps. One strained signal never makes it Low.
 
 ## Install
 
@@ -134,18 +139,24 @@ Rule: logic lives in `ResetCore`. Views call it. `ResetCore` has no UI, SwiftDat
 
 * Not yet run on a physical iPhone. Automatic features are unproven on hardware.
 * iOS can delay or miss location events. Needs Always location and Background App Refresh. Times are estimates, not proof of hours worked.
-* The phone cannot detect sleep. It needs an Apple Watch or another app writing to Health.
+* The phone cannot detect sleep. It needs an Apple Watch or another app writing to Health, or you log it by hand.
+* Vehicle filtering for steps relies on iOS motion classification. Some rides may still count.
 * Notifications are scheduled ahead and cannot show live numbers.
 * Allergy checks match names only. Always read the label.
 * Not medical advice. Estimates only.
 
-## Before release
+## Contributing
 
-* Fill `publisher`, `contactEmail` and `governingLaw` in `RESET/Features/Settings/LegalView.swift`.
-* Host the Privacy Policy on a public URL.
-* Have a lawyer review the legal text.
-* Replace the placeholder bundle id.
+Issues and suggestions are welcome. Pull requests are not accepted unless agreed in an issue first. Any contribution you submit may be used by the owner under the terms below.
+
+## License
+
+Copyright (c) 2026 Rayyan Ahmed. All rights reserved.
+
+The source is public so you can read and learn from it. Reading is the only permission granted. You may not use, copy, modify, distribute, sublicense, sell, or publish this code or the app, in whole or in part, without written permission from the owner. See `LICENSE`.
 
 ## Credits
 
 Nutrition data: USDA FoodData Central (public domain) and Open Food Facts (ODbL).
+
+Third party data keeps its own license. This repository's license does not change it.
