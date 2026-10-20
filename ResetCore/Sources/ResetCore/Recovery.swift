@@ -24,14 +24,20 @@ public struct RecoveryInput: Sendable {
     public var strenuousSessionsLast48h: Int
     public var consecutiveTrainingDays: Int
     public var symptomsReported: Bool
+    /// Yesterday, as a share of the goal. Nil when there is no goal or nothing was logged.
+    public var waterShare: Double?
+    public var intakeShare: Double?
+    public var yesterdaySteps: Int?
 
     public init(sleepHours: [Double] = [], sleepTargetHours: Double = 8, sleepQuality: Int? = nil, energy: Int? = nil,
                 fatigue: Int? = nil, workHoursRecent: Double? = nil, strenuousSessionsLast48h: Int = 0,
-                consecutiveTrainingDays: Int = 0, symptomsReported: Bool = false) {
+                consecutiveTrainingDays: Int = 0, symptomsReported: Bool = false,
+                waterShare: Double? = nil, intakeShare: Double? = nil, yesterdaySteps: Int? = nil) {
         self.sleepHours = sleepHours; self.sleepTargetHours = sleepTargetHours; self.sleepQuality = sleepQuality
         self.energy = energy; self.fatigue = fatigue; self.workHoursRecent = workHoursRecent
         self.strenuousSessionsLast48h = strenuousSessionsLast48h; self.consecutiveTrainingDays = consecutiveTrainingDays
         self.symptomsReported = symptomsReported
+        self.waterShare = waterShare; self.intakeShare = intakeShare; self.yesterdaySteps = yesterdaySteps
     }
 }
 
@@ -89,6 +95,10 @@ public enum RecoveryEngine {
             if f >= 4 { add(2, "You reported high fatigue.") }
         }
         if let h = i.workHoursRecent { signals += 1; if h >= 10 { add(1, "A long workday (\(String(format: "%.0f", h)) h) adds load.") } }
+        // Fuel and fluids shape recovery, but only when clearly off. Yesterday is used because today is not over.
+        if let w = i.waterShare { signals += 1; if w < 0.6 { add(1, "Fluids were low yesterday (\(Int(w * 100))% of your goal).") } }
+        if let k = i.intakeShare { signals += 1; if k < 0.6 { add(1, "Food intake was low yesterday (\(Int(k * 100))% of your guide). Under eating slows recovery.") } }
+        if let st = i.yesterdaySteps { signals += 1; if st >= 20_000 { add(1, "Very high step count yesterday (\(st.formatted())).") } }
         signals += 1 // training history is always known, even when it is zero
         if i.strenuousSessionsLast48h >= 2 { add(1, "Two or more hard sessions in the last two days.") }
         if i.consecutiveTrainingDays >= 3 { add(1, "Three or more training days in a row.") }

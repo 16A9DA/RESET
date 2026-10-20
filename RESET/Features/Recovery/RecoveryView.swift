@@ -24,11 +24,20 @@ enum RecoverySnapshot {
             let had = hard.contains { cal.isDate($0.start, inSameDayAs: d) }
             if had { streak += 1 } else if back > 0 { break }
         }
+        let yWindow = Day.interval(of: yesterday)
+        let waterMl = ((try? context.fetch(FetchDescriptor<WaterRecord>())) ?? []).filter { yWindow.contains($0.at) }.reduce(0) { $0 + $1.ml }
+        let waterShare = profile?.effectiveWaterGoalMl.flatMap { waterMl > 0 ? waterMl / $0 : nil }
+        let meals = ((try? context.fetch(FetchDescriptor<MealRecord>())) ?? []).map { ($0.at, $0.items) }
+        let eaten = NutritionTotals.day(meals, on: yesterday, calendar: cal)
+        let counting = profile?.calorieCountingEnabled ?? true
+        let intakeShare = (counting && eaten.mealCount > 0) ? profile?.energyPlan.targetKcal.map { eaten.total.kcal / $0 } : nil
+        let stored = UserDefaults.standard.integer(forKey: HealthService.yesterdayStepsKey)
         return RecoveryInput(sleepHours: sleeps.map(\.hours), sleepTargetHours: profile?.sleepTargetHours ?? 8,
                              sleepQuality: sleeps.first.flatMap { Calendar.current.isDate($0.day, inSameDayAs: now) ? $0.quality : nil },
                              energy: latest(.energy), fatigue: latest(.fatigue), workHoursRecent: workH > 0 ? workH : nil,
                              strenuousSessionsLast48h: last48, consecutiveTrainingDays: streak,
-                             symptomsReported: checks.contains { $0.kind == .symptom })
+                             symptomsReported: checks.contains { $0.kind == .symptom },
+                             waterShare: waterShare, intakeShare: intakeShare, yesterdaySteps: stored > 0 ? stored : nil)
     }
 
     static func assess(context: ModelContext, profile: UserProfile?) -> RecoveryResult {

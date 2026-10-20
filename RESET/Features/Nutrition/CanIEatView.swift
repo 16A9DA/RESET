@@ -31,14 +31,14 @@ struct CanIEatView: View {
                     TextField("What is it?", text: $text, axis: .vertical)
                         .lineLimit(1...4).padding(12).glass(12)
                         .submitLabel(.go).onSubmit { ask(text: text, image: nil) }
+                    Button("Ask") { ask(text: text, image: nil) }
+                        .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black).controlSize(.large)
+                        .frame(maxWidth: .infinity)
+                        .disabled(busy || text.trimmingCharacters(in: .whitespaces).isEmpty)
                     HStack(spacing: 10) {
                         if CameraPicker.available { pill("camera.fill", "Photo") { showCamera = true } }
                         PhotosPicker(selection: $pickerItem, matching: .images) { pillLabel("photo", "Library") }
                         pill("barcode.viewfinder", "Barcode") { showScanner = true }
-                        Spacer()
-                        Button("Ask") { ask(text: text, image: nil) }
-                            .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
-                            .disabled(busy || text.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
                     if busy { ProgressView() }
                     if let error { Text(error).font(.footnote).foregroundStyle(Theme.low) }

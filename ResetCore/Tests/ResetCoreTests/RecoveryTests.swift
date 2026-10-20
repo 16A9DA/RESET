@@ -42,3 +42,13 @@ import Testing
     let r = RecoveryEngine.assess(RecoveryInput(sleepHours: [6.5], energy: 3, workHoursRecent: 11))
     #expect(r.reasons.contains { $0.contains("long workday") })
 }
+
+@Test func lowFluidsAndFoodYesterdayStrainRecovery() {
+    let r = RecoveryEngine.assess(RecoveryInput(sleepHours: [8], energy: 3, waterShare: 0.4, intakeShare: 0.4))
+    #expect(r.band == .moderate && r.reasons.contains { $0.contains("Fluids") } && r.reasons.contains { $0.contains("Food intake") })
+}
+
+@Test func goodFluidsAndFoodAddNoStrain() {
+    let r = RecoveryEngine.assess(RecoveryInput(sleepHours: [8], energy: 4, waterShare: 0.9, intakeShare: 0.95, yesterdaySteps: 9000))
+    #expect(r.band == .good)
+}

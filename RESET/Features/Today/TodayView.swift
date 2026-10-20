@@ -27,7 +27,7 @@ final class AppRouter {
 }
 
 private enum QuickSheet: String, Identifiable {
-    case food, photo, barcode, checkIn, canEat
+    case food, photo, barcode, checkIn, canEat, sleepLog
     var id: String { rawValue }
 }
 
@@ -68,8 +68,7 @@ struct TodayView: View {
                         waterTile(s)
                         tile("Steps", s.steps.map { $0.formatted() }, icon: "figure.walk", tint: Theme.steps,
                              fraction: s.steps.map { Double($0) / 8000 }, caption: "of 8,000")
-                        tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon.fill", tint: Theme.sleep,
-                             fraction: s.sleepHours.map { $0 / s.sleepTargetHours }, caption: "of \(String(format: "%g", s.sleepTargetHours)) h")
+                        sleepTile(s)
                         recoveryTile(s)
                     }
                     SectionLabel("Tools")
@@ -104,6 +103,7 @@ struct TodayView: View {
                 case .barcode: AddFoodView(startWith: .barcode)
                 case .checkIn: CheckInSheet()
                 case .canEat: CanIEatView()
+                case .sleepLog: SleepLogSheet()
                 }
             }
         }
@@ -216,6 +216,18 @@ struct TodayView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// Opens the sleep history when there is a night, otherwise the manual log so a missing Health import never blocks you.
+    @ViewBuilder private func sleepTile(_ s: DaySummary) -> some View {
+        let body = tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon.fill", tint: Theme.sleep,
+                        fraction: s.sleepHours.map { $0 / s.sleepTargetHours },
+                        caption: s.sleepHours == nil ? "Tap to log" : "of \(String(format: "%g", s.sleepTargetHours)) h")
+        if s.sleepHours == nil {
+            Button { sheet = .sleepLog } label: { body }.buttonStyle(Press())
+        } else {
+            NavigationLink { SleepView() } label: { body }.buttonStyle(Press())
+        }
+    }
+
     private func recoveryTile(_ s: DaySummary) -> some View {
         Button { sheet = .checkIn } label: {
             VStack(alignment: .leading, spacing: 8) {
@@ -249,20 +261,9 @@ struct TodayView: View {
             }
             .buttonStyle(Press())
             .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
-            barButton("camera.fill", "Photo") { sheet = .photo }
-            barButton("barcode.viewfinder", "Barcode") { sheet = .barcode }
         }
         .padding(8).background(.ultraThinMaterial, in: Capsule())
         .padding(.horizontal).padding(.bottom, 4)
-    }
-
-    private func barButton(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon).font(.headline).frame(width: 48, height: 48)
-        }
-        .buttonStyle(Press())
-        .background(Color.primary.opacity(0.12), in: Circle())
-        .accessibilityLabel(label)
     }
 }
 

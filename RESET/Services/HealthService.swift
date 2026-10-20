@@ -22,6 +22,7 @@ final class HealthService {
     private static let bucket: TimeInterval = 300
     /// No person walks or runs faster than this, so a bucket above it is vehicle vibration.
     private static let maxStepsPerSecond = 4.0
+    static let yesterdayStepsKey = "health.yesterdaySteps"
     private let requestedKey = "health.authRequested"
 
     private(set) var todaySteps: Int?
@@ -73,6 +74,7 @@ final class HealthService {
             let vehicle = await vehicleSpans(from: weekStart, to: .now)
             week = await weekSteps(from: weekStart, vehicle: vehicle)
             if let today = week.last, today.steps > 0 { steps = today.steps }
+            if week.count >= 2 { UserDefaults.standard.set(week[week.count - 2].steps, forKey: Self.yesterdayStepsKey) }
             distanceM = try? await cleanBuckets(.distanceWalkingRunning, unit: .meter(), from: start, vehicle: vehicle)
                 .reduce(0) { $0 + $1.value }
             if steps != nil { source = "Apple Health" }
