@@ -58,15 +58,22 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     header(s, symptoms: symptoms)
-                    ForEach([SessionCategory.work, .university, .gym], id: \.self) { timeRow($0, s) }
+                    let times = [SessionCategory.work, .university, .gym].filter { hasTime($0) }
+                    if !times.isEmpty { SectionLabel("Time") }
+                    ForEach(times, id: \.self) { timeRow($0, s) }
+                    SectionLabel("Nutrition")
                     foodCard(s)
-                    HStack(spacing: 12) {
+                    SectionLabel("Body")
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         waterTile(s)
-                        tile("Steps", s.steps.map { $0.formatted() }, icon: "figure.walk")
-                        tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon")
+                        tile("Steps", s.steps.map { $0.formatted() }, icon: "figure.walk", tint: Theme.steps,
+                             fraction: s.steps.map { Double($0) / 8000 }, caption: "of 8,000")
+                        tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon.fill", tint: Theme.sleep,
+                             fraction: s.sleepHours.map { $0 / s.sleepTargetHours }, caption: "of \(String(format: "%g", s.sleepTargetHours)) h")
+                        recoveryTile(s)
                     }
+                    SectionLabel("Tools")
                     Button { sheet = .canEat } label: { row("Can I eat this?", icon: "questionmark.circle") }.buttonStyle(Press())
-                    recoveryRow(s)
                     NavigationLink { ScrollView { WorkoutCard().padding() }.background(GlassBackdrop()).navigationTitle("Workout") } label: {
                         row("Workout", icon: "dumbbell")
                     }.buttonStyle(Press())
@@ -125,6 +132,11 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
     }
 
+    private func hasTime(_ category: SessionCategory) -> Bool {
+        let w = Day.interval(of: .now)
+        return profile?.goalSeconds(category) != nil || sessions.contains { $0.category == category && w.contains($0.start) && $0.status != .needsReview }
+    }
+
     /// Work, university and gym fill themselves from place detection: "09:02 to 17:40, 8h 38m".
     @ViewBuilder private func timeRow(_ category: SessionCategory, _ s: DaySummary) -> some View {
         let now = Date.now
@@ -156,17 +168,17 @@ struct TodayView: View {
     private func foodCard(_ s: DaySummary) -> some View {
         Card {
             HStack(alignment: .firstTextBaseline) {
-                Label("Food", systemImage: "fork.knife").font(.headline)
+                Label("Food", systemImage: "fork.knife").font(.headline).foregroundStyle(Theme.food)
                 Spacer()
                 if s.calorieCounting {
                     Text("\(Int(s.kcalConsumed.rounded()))").font(.system(.title, design: .rounded, weight: .bold)).monospacedDigit()
                     + Text(s.kcalTarget.map { " / \(Int($0.rounded())) kcal" } ?? " kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
                 }
             }
-            if s.calorieCounting, let t = s.kcalTarget { ProgressBar(fraction: s.kcalConsumed / t) }
-            MacroRow(name: "Protein", eaten: s.proteinG, goal: s.proteinTargetG)
-            MacroRow(name: "Carbs", eaten: s.carbsG, goal: s.carbsTargetG)
-            MacroRow(name: "Fat", eaten: s.fatG, goal: s.fatTargetG)
+            if s.calorieCounting, let t = s.kcalTarget { ProgressBar(fraction: s.kcalConsumed / t, tint: Theme.food) }
+            MacroRow(name: "Protein", eaten: s.proteinG, goal: s.proteinTargetG, tint: Theme.protein)
+            MacroRow(name: "Carbs", eaten: s.carbsG, goal: s.carbsTargetG, tint: Theme.carbs)
+            MacroRow(name: "Fat", eaten: s.fatG, goal: s.fatTargetG, tint: Theme.fat)
         }
     }
 
@@ -176,37 +188,47 @@ struct TodayView: View {
             context.insert(WaterRecord(ml: ml)); try? context.save()
             Task { await notifier.rebuild(context: context) }
         } label: {
-            tileBody("Water", String(format: "%.1f L", s.waterMl / 1000), icon: "drop")
+            tileBody("Water", String(format: "%.1f L", s.waterMl / 1000), icon: "drop.fill", tint: Theme.water,
+                     fraction: s.waterGoalMl.map { s.waterMl / $0 }, caption: s.waterGoalMl.map { String(format: "of %.1f L", $0 / 1000) })
         }
         .buttonStyle(Press())
         .sensoryFeedback(.success, trigger: waters.count)
         .accessibilityHint("Adds \(Int(ml)) millilitres")
     }
 
-    private func tile(_ title: String, _ value: String?, icon: String) -> some View {
-        tileBody(title, value ?? "None", icon: icon)
+    private func tile(_ title: String, _ value: String?, icon: String, tint: Color, fraction: Double?, caption: String?) -> some View {
+        tileBody(title, value ?? "None", icon: icon, tint: tint, fraction: fraction, caption: value == nil ? "Not recorded" : caption)
     }
 
-    private func tileBody(_ title: String, _ value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon).foregroundStyle(Theme.accent)
-            Text(value).font(.system(.headline, design: .rounded, weight: .bold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-            Text(title).font(.caption).foregroundStyle(Theme.secondaryText)
+    /// Health-style tile: colored title, big value, ring for goal progress.
+    private func tileBody(_ title: String, _ value: String, icon: String, tint: Color, fraction: Double?, caption: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(tint)
+                Spacer()
+                ProgressRing(fraction: fraction ?? 0, tint: tint, icon: icon)
+            }
+            Text(value).font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(caption ?? " ").font(.caption).foregroundStyle(Theme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(14)
         .glass(20)
+        .accessibilityElement(children: .combine)
     }
 
-    private func recoveryRow(_ s: DaySummary) -> some View {
+    private func recoveryTile(_ s: DaySummary) -> some View {
         Button { sheet = .checkIn } label: {
-            HStack {
-                Circle().fill(s.recoveryBand.color).frame(width: 12, height: 12)
-                Text("Recovery").font(.headline)
-                Spacer()
-                Text(s.recoveryBand.title).foregroundStyle(Theme.secondaryText)
-                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Recovery").font(.subheadline.weight(.semibold)).foregroundStyle(s.recoveryBand.color)
+                    Spacer()
+                    Image(systemName: "heart.fill").foregroundStyle(s.recoveryBand.color).frame(width: 38, height: 38)
+                }
+                Text(s.recoveryBand.title).font(.system(.title2, design: .rounded, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
+                Text("Tap to check in").font(.caption).foregroundStyle(Theme.secondaryText)
             }
-            .padding(16).glass(20)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+            .glass(20)
         }.buttonStyle(Press())
     }
 

@@ -7,6 +7,13 @@ enum Theme {
     static let background = dynamic(dark: UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 1), light: UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1))
     static let card = dynamic(dark: UIColor(red: 0.11, green: 0.11, blue: 0.14, alpha: 1), light: .white)
     static let accent = Color(red: 0.80, green: 1.00, blue: 0.20)
+    static let food = Color.orange
+    static let water = Color.cyan
+    static let steps = Color.green
+    static let sleep = Color.indigo
+    static let protein = Color.pink
+    static let carbs = Color.yellow
+    static let fat = Color.purple
     static let secondaryText = Color.primary.opacity(0.62)
     static let good = Color(red: 0.35, green: 0.85, blue: 0.55)
     static let warn = Color(red: 1.0, green: 0.72, blue: 0.25)
@@ -99,17 +106,48 @@ struct EmptyNote: View {
     }
 }
 
-/// One macro line: name on the left, eaten / goal on the right. Goal shows only when the plan has one.
+/// One macro line: colored name, eaten / goal, thin bar. Goal shows only when the plan has one.
 struct MacroRow: View {
     let name: String
     let eaten: Double
     let goal: Double
+    var tint: Color = Theme.accent
     var body: some View {
-        HStack {
-            Text(name).foregroundStyle(Theme.secondaryText)
-            Spacer()
-            Text(goal > 0 ? "\(Int(eaten.rounded())) / \(Int(goal.rounded())) g" : "\(Int(eaten.rounded())) g").monospacedDigit()
-        }.font(.subheadline)
+        VStack(spacing: 4) {
+            HStack {
+                Text(name).foregroundStyle(tint).fontWeight(.semibold)
+                Spacer()
+                Text(goal > 0 ? "\(Int(eaten.rounded())) / \(Int(goal.rounded())) g" : "\(Int(eaten.rounded())) g").monospacedDigit()
+            }.font(.subheadline)
+            if goal > 0 { ProgressBar(fraction: eaten / goal, tint: tint).frame(height: 6) }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Health-style section label above a group of cards.
+struct SectionLabel: View {
+    let title: String
+    init(_ title: String) { self.title = title }
+    var body: some View {
+        Text(title).font(.title3.weight(.bold)).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+    }
+}
+
+/// Ring for a daily goal. No goal means no ring, only the icon.
+struct ProgressRing: View {
+    var fraction: Double
+    var tint: Color
+    var icon: String
+    var body: some View {
+        ZStack {
+            Circle().stroke(tint.opacity(0.2), lineWidth: 5)
+            Circle().trim(from: 0, to: min(1, max(0, fraction)))
+                .stroke(tint, style: StrokeStyle(lineWidth: 5, lineCap: .round)).rotationEffect(.degrees(-90))
+            Image(systemName: icon).font(.footnote.weight(.bold)).foregroundStyle(tint)
+        }
+        .frame(width: 38, height: 38)
+        .animation(.easeOut(duration: 0.5), value: fraction)
     }
 }
 
