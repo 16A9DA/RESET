@@ -15,7 +15,7 @@ public enum FoodAnalyzer {
     "confidence":"low"|"medium"|"high","searchQuery":string,"estimate":{"kcal":number,"proteinG":number,"carbsG":number,"fatG":number,"caffeineMg":number|null}}],\
     "mealType":"breakfast"|"lunch"|"dinner"|"snack"|null,"uncertainties":[string]}
     Rules:
-    - One item per distinct food or drink. Grams is the edible weight, or millilitres for drinks. Use the amount the user states; otherwise estimate a typical portion and lower confidence.
+    - Include EVERY distinct food and drink mentioned or visible. A plate, tray or sentence with several dishes must produce several items, never just the first or the main one. One item per distinct food or drink. Grams is the edible weight, or millilitres for drinks. Use the amount the user states; otherwise estimate a typical portion and lower confidence.
     - consumed is false only if the user says they bought, were offered or saved something rather than ate it. Never assume purchases were eaten.
     - searchQuery is a short plain database phrase such as "chicken breast cooked".
     - estimate is your best guess for that many grams. It is only a fallback and is not verified. Use null for caffeineMg unless the item contains caffeine; for a branded energy drink give the label amount only if you are sure, otherwise null.
@@ -34,7 +34,7 @@ public enum FoodAnalyzer {
         default: prompt = "Identify the foods in this photo and estimate portions."
         }
         parts.append(.text(prompt))
-        let reply = try await provider.complete(AIRequest(system: system, messages: [AIMessage(role: .user, parts: parts)], maxTokens: 1500))
+        let reply = try await provider.complete(AIRequest(system: system, messages: [AIMessage(role: .user, parts: parts)], maxTokens: 4000))
         return try await finish(reply.text, lookup: lookup, brandLookup: brandLookup)
     }
 

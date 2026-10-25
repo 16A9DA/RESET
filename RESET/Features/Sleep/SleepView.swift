@@ -86,7 +86,7 @@ struct SleepView: View {
                 HStack {
                     VStack(alignment: .leading) {
                         Text(r.day.formatted(.dateTime.weekday(.wide).day().month())).font(.subheadline)
-                        Text("\(r.asleepAt.formatted(date: .omitted, time: .shortened)) to \(r.wokeAt.formatted(date: .omitted, time: .shortened)), \(r.source == .imported ? "from Health" : "entered by you")")
+                        Text("\(r.asleepAt.formatted(date: .omitted, time: .shortened)) to \(r.wokeAt.formatted(date: .omitted, time: .shortened)), \(r.source == .imported ? "from Health" : (r.source == .auto ? "estimated from phone activity" : "entered by you"))")
                             .font(.caption).foregroundStyle(Theme.secondaryText)
                     }
                     Spacer()

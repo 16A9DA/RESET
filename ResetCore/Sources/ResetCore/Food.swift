@@ -37,6 +37,42 @@ public struct ParsedItem: Codable, Sendable, Equatable {
     public var estimate: ParsedEstimate?
 }
 
+/// Models sometimes send numbers as strings ("150", "150 g"). One odd field must not sink a whole multi dish reply.
+private extension KeyedDecodingContainer {
+    func flexDouble(_ key: Key) -> Double? {
+        if let d = try? decodeIfPresent(Double.self, forKey: key) { return d }
+        guard let s = try? decodeIfPresent(String.self, forKey: key) else { return nil }
+        let digits = s.prefix { $0.isNumber || $0 == "." }
+        return Double(digits)
+    }
+}
+
+extension ParsedItem {
+    enum CodingKeys: String, CodingKey { case name, brand, grams, preparation, consumed, confidence, searchQuery, estimate }
+
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        brand = try? c.decodeIfPresent(String.self, forKey: .brand)
+        grams = c.flexDouble(.grams) ?? 0
+        preparation = try? c.decodeIfPresent(String.self, forKey: .preparation)
+        consumed = try? c.decodeIfPresent(Bool.self, forKey: .consumed)
+        confidence = try? c.decodeIfPresent(String.self, forKey: .confidence)
+        searchQuery = try? c.decodeIfPresent(String.self, forKey: .searchQuery)
+        estimate = try? c.decodeIfPresent(ParsedEstimate.self, forKey: .estimate)
+    }
+}
+
+extension ParsedEstimate {
+    enum CodingKeys: String, CodingKey { case kcal, proteinG, carbsG, fatG, caffeineMg }
+
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        kcal = c.flexDouble(.kcal); proteinG = c.flexDouble(.proteinG); carbsG = c.flexDouble(.carbsG)
+        fatG = c.flexDouble(.fatG); caffeineMg = c.flexDouble(.caffeineMg)
+    }
+}
+
 public struct ParsedEstimate: Codable, Sendable, Equatable {
     public var kcal: Double?
     public var proteinG: Double?
@@ -49,6 +85,24 @@ public struct ParsedMeal: Codable, Sendable, Equatable {
     public var items: [ParsedItem]
     public var mealType: String?
     public var uncertainties: [String]?
+
+    public init(items: [ParsedItem], mealType: String? = nil, uncertainties: [String]? = nil) {
+        self.items = items; self.mealType = mealType; self.uncertainties = uncertainties
+    }
+
+    enum CodingKeys: String, CodingKey { case items, mealType, uncertainties }
+    private struct Lossy: Decodable {
+        let item: ParsedItem?
+        init(from d: Decoder) { item = try? ParsedItem(from: d) }
+    }
+
+    /// A bad dish is skipped, the others still come through.
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        items = try c.decode([Lossy].self, forKey: .items).compactMap(\.item)
+        mealType = try? c.decodeIfPresent(String.self, forKey: .mealType)
+        uncertainties = try? c.decodeIfPresent([String].self, forKey: .uncertainties)
+    }
 }
 
 public enum FoodValidationError: Error, Equatable, LocalizedError {
@@ -71,9 +125,31 @@ public enum FoodValidator {
         return String(text[a...b]).data(using: .utf8)
     }
 
+    /// A reply cut off by the token limit has no closing brace. Keep the dishes that finished and close the JSON.
+    static func salvageTruncated(_ text: String) -> Data? {
+        guard let a = text.firstIndex(of: "{") else { return nil }
+        let body = String(text[a...])
+        var depth = 0, inString = false, escaped = false, lastItemEnd: String.Index?
+        for i in body.indices {
+            let ch = body[i]
+            if inString { if escaped { escaped = false } else if ch == "\\" { escaped = true } else if ch == "\"" { inString = false }; continue }
+            switch ch {
+            case "\"": inString = true
+            case "{", "[": depth += 1
+            case "}", "]":
+                depth -= 1
+                if depth == 2 { lastItemEnd = i }   // an item object closed inside {"items":[ ... ]}
+            default: break
+            }
+        }
+        guard let end = lastItemEnd else { return nil }
+        return (String(body[...end]) + "]}").data(using: .utf8)
+    }
+
     /// Decodes and sanitises. Never trusts numbers: clamps grams, drops impossible macros, caps item count.
     public static func parse(_ text: String) throws -> ParsedMeal {
-        guard let data = extractJSON(text), var meal = try? JSONDecoder().decode(ParsedMeal.self, from: data) else {
+        let decode = { (d: Data?) in d.flatMap { try? JSONDecoder().decode(ParsedMeal.self, from: $0) } }
+        guard var meal = decode(extractJSON(text)) ?? decode(salvageTruncated(text)) else {
             throw FoodValidationError.notJSON
         }
         meal.items = meal.items.prefix(maxItems).compactMap(sanitize)
@@ -104,11 +180,15 @@ public enum FoodResolver {
     /// Turns parsed items into stored items. Database values win. The model's numbers are a labelled fallback.
     /// Lookup failures (offline, rate limit) degrade to the fallback and never throw away the entry.
     public static func resolve(_ meal: ParsedMeal, lookup: FoodLookup?, brandLookup: FoodLookup? = nil) async -> [FoodItem] {
-        var out: [FoodItem] = []
-        for p in meal.items {
-            out.append(await resolve(p, lookup: lookup, brandLookup: brandLookup))
+        // Dishes resolve in parallel so a six item plate costs one lookup round trip, not six. Order is kept.
+        await withTaskGroup(of: (Int, FoodItem).self) { group in
+            for (n, p) in meal.items.enumerated() {
+                group.addTask { (n, await resolve(p, lookup: lookup, brandLookup: brandLookup)) }
+            }
+            var out: [(Int, FoodItem)] = []
+            for await r in group { out.append(r) }
+            return out.sorted { $0.0 < $1.0 }.map(\.1)
         }
-        return out
     }
 
     /// Branded items try the product database first (labels beat generic averages), then the generic one.

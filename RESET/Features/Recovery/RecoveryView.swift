@@ -77,12 +77,17 @@ struct RecoveryCard: View {
         let _ = (sleeps.count, checks.count, activities.count) // re-evaluate when inputs change
         Card(title: "Recovery") {
             HStack {
-                Circle().fill(r.band.color).frame(width: 14, height: 14)
-                Text(r.band.title).font(.system(.title2, design: .rounded, weight: .bold))
+                if let score = r.score {
+                    Text("\(score)").font(.system(size: 40, weight: .bold, design: .rounded)).tracking(-1).monospacedDigit().foregroundStyle(r.band.color)
+                }
+                Text(r.band.title).font(.system(.title3, design: .rounded, weight: .bold))
                 Spacer()
                 Button("Check in") { checkingIn = true }.buttonStyle(.bordered)
             }
             Text(r.advice).font(.subheadline)
+            ForEach(r.components) { c in
+                ComponentBar(title: c.title, fraction: c.fraction, detail: c.detail, tint: c.fraction >= 0.75 ? Theme.good : (c.fraction >= 0.5 ? Theme.warn : Theme.low))
+            }
             ForEach(r.reasons, id: \.self) { Text("• \($0)").font(.footnote).foregroundStyle(Theme.secondaryText) }
             Text(RecoveryResult.disclaimer).font(.caption).foregroundStyle(Theme.secondaryText)
         }

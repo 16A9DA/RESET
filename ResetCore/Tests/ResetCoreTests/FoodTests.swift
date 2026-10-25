@@ -128,3 +128,15 @@ private struct Failing: FoodLookup { func search(_ q: String) async throws -> [R
     let unbranded = await FoodResolver.resolve(ParsedItem(name: "Energy drink", grams: 250), lookup: StubLookup(results: [generic]), brandLookup: StubLookup(results: [label]))
     #expect(unbranded.dataSource == "USDA")
 }
+
+@Test func stringGramsAndBadItemDoNotSinkOtherDishes() throws {
+    let reply = #"{"items":[{"name":"rice","grams":"180 g","estimate":{"kcal":"230"}},{"grams":5},{"name":"chicken","grams":120}]}"#
+    let m = try FoodValidator.parse(reply)
+    #expect(m.items.map(\.name) == ["rice", "chicken"])
+    #expect(m.items[0].grams == 180)
+}
+
+@Test func truncatedReplyKeepsFinishedDishes() throws {
+    let reply = #"{"items":[{"name":"rice","grams":180},{"name":"dal","grams":150},{"name":"sal"#
+    #expect(try FoodValidator.parse(reply).items.map(\.name) == ["rice", "dal"])
+}

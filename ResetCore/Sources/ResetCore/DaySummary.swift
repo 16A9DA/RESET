@@ -30,6 +30,9 @@ public struct DaySummary: Codable, Equatable, Sendable {
     public var universitySeconds: Double?
     public var recoveryBand: RecoveryBand
     public var recoveryReasons: [String]
+    public var recoveryScore: Int? = nil
+    public var recoveryComponents: [RecoveryComponent] = []
+    public var recoveryAdvice = ""
 
     public var calorieBalance: Double? { Energy.balance(consumedKcal: kcalConsumed, maintenanceKcal: kcalMaintenance) }
     public var kcalRemaining: Double? { kcalTarget.map { $0 - kcalConsumed } }

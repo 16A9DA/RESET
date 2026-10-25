@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Observation
+import Charts
 import ResetCore
 
 enum AppTab: Hashable { case today, activity, nutrition, insights, coach }
@@ -58,20 +59,17 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     header(s, symptoms: symptoms)
-                    let times = [SessionCategory.work, .university, .gym].filter { hasTime($0) }
-                    if !times.isEmpty { SectionLabel("Time") }
-                    ForEach(times, id: \.self) { timeRow($0, s) }
-                    SectionLabel("Nutrition")
+                    recoveryHero(s)
                     foodCard(s)
-                    SectionLabel("Body")
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         waterTile(s)
-                        tile("Steps", s.steps.map { $0.formatted() }, icon: "figure.walk", tint: Theme.steps,
-                             fraction: s.steps.map { Double($0) / 8000 }, caption: "of 8,000")
+                        caffeineTile(s)
+                        stepsTile(s)
                         sleepTile(s)
-                        recoveryTile(s)
                     }
-                    SectionLabel("Tools")
+                    weekCard(s)
+                    let times = [SessionCategory.work, .university, .gym].filter { hasTime($0) }
+                    ForEach(times, id: \.self) { timeRow($0, s) }
                     Button { sheet = .canEat } label: { row("Can I eat this?", icon: "questionmark.circle") }.buttonStyle(Press())
                     NavigationLink { ScrollView { WorkoutCard().padding() }.background(GlassBackdrop()).navigationTitle("Workout") } label: {
                         row("Workout", icon: "dumbbell")
@@ -127,7 +125,8 @@ struct TodayView: View {
         return VStack(alignment: .leading, spacing: 4) {
             Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.subheadline).foregroundStyle(Theme.secondaryText)
             Text(Priority.message(s, symptoms: symptoms, hour: hour))
-                .font(.system(.title2, design: .rounded, weight: .semibold)).tracking(-0.3)
+                .font(.system(.title, design: .rounded, weight: .bold)).tracking(-0.6).lineSpacing(1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
     }
@@ -168,18 +167,110 @@ struct TodayView: View {
     private func foodCard(_ s: DaySummary) -> some View {
         Card {
             HStack(alignment: .firstTextBaseline) {
-                Label("Food", systemImage: "fork.knife").font(.headline).foregroundStyle(Theme.food)
+                Label("Food", systemImage: "fork.knife").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.food)
                 Spacer()
-                if s.calorieCounting {
-                    Text("\(Int(s.kcalConsumed.rounded()))").font(.system(.title, design: .rounded, weight: .bold)).monospacedDigit()
-                    + Text(s.kcalTarget.map { " / \(Int($0.rounded())) kcal" } ?? " kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                if let left = s.kcalRemaining, s.calorieCounting {
+                    Text(left >= 0 ? "\(Int(left.rounded())) kcal left" : "\(Int((-left).rounded())) kcal over")
+                        .font(.footnote.weight(.medium)).foregroundStyle(left >= 0 ? Theme.secondaryText : Theme.warn).monospacedDigit()
                 }
             }
-            if s.calorieCounting, let t = s.kcalTarget { ProgressBar(fraction: s.kcalConsumed / t, tint: Theme.food) }
-            MacroRow(name: "Protein", eaten: s.proteinG, goal: s.proteinTargetG, tint: Theme.protein)
-            MacroRow(name: "Carbs", eaten: s.carbsG, goal: s.carbsTargetG, tint: Theme.carbs)
-            MacroRow(name: "Fat", eaten: s.fatG, goal: s.fatTargetG, tint: Theme.fat)
+            if s.calorieCounting {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(Int(s.kcalConsumed.rounded()))").font(.system(size: 44, weight: .bold, design: .rounded)).tracking(-1).monospacedDigit()
+                    Text(s.kcalTarget.map { "of \(Int($0.rounded())) kcal" } ?? "kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                }
+                if let t = s.kcalTarget { ProgressBar(fraction: s.kcalConsumed / t, tint: Theme.food).frame(height: 8) }
+            }
+            HStack(spacing: 10) {
+                macroColumn("Protein", s.proteinG, s.proteinTargetG, Theme.protein)
+                macroColumn("Carbs", s.carbsG, s.carbsTargetG, Theme.carbs)
+                macroColumn("Fat", s.fatG, s.fatTargetG, Theme.fat)
+            }.padding(.top, 4)
         }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func macroColumn(_ name: String, _ eaten: Double, _ goal: Double, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(name).font(.caption.weight(.semibold)).foregroundStyle(tint)
+            Text("\(Int(eaten.rounded())) g").font(.system(.headline, design: .rounded, weight: .bold)).monospacedDigit()
+            if goal > 0 { ProgressBar(fraction: eaten / goal, tint: tint).frame(height: 4) }
+            Text(goal > 0 ? "of \(Int(goal.rounded())) g" : " ").font(.caption2).foregroundStyle(Theme.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10).background(Theme.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    // MARK: Recovery hero
+
+    private func recoveryHero(_ s: DaySummary) -> some View {
+        let tint = s.recoveryBand.color
+        return Button { sheet = .checkIn } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 18) {
+                    ZStack {
+                        ArcGauge(fraction: Double(s.recoveryScore ?? 0) / 100, tint: tint)
+                        VStack(spacing: 0) {
+                            Text(s.recoveryScore.map(String.init) ?? "--")
+                                .font(.system(size: 46, weight: .bold, design: .rounded)).tracking(-1.5).monospacedDigit()
+                            Text("Recovery").font(.caption.weight(.medium)).foregroundStyle(Theme.secondaryText)
+                        }
+                    }
+                    .frame(width: 138, height: 138)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(s.recoveryBand.title).font(.system(.title3, design: .rounded, weight: .bold)).foregroundStyle(tint)
+                        Text(s.recoveryAdvice.isEmpty ? "Log sleep and a quick check-in to get a read." : s.recoveryAdvice)
+                            .font(.subheadline).foregroundStyle(Theme.secondaryText).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                if !s.recoveryComponents.isEmpty {
+                    VStack(spacing: 10) {
+                        ForEach(s.recoveryComponents) { c in
+                            ComponentBar(title: c.title, fraction: c.fraction, detail: c.detail, tint: componentTint(c.fraction))
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(26)
+        }
+        .buttonStyle(Press())
+        .accessibilityHint("Opens check in")
+    }
+
+    private func componentTint(_ f: Double) -> Color { f >= 0.75 ? Theme.good : (f >= 0.5 ? Theme.warn : Theme.low) }
+
+    // MARK: Week
+
+    private func weekCard(_ s: DaySummary) -> some View {
+        let cal = Calendar.current
+        let days = (0..<7).reversed().compactMap { cal.date(byAdding: .day, value: -$0, to: cal.startOfDay(for: .now)) }
+        let sleepByDay = days.map { d in (day: d, hours: sleeps.first { cal.isDate($0.day, inSameDayAs: d) }?.hours) }
+        return Card(title: "This week") {
+            HStack(alignment: .top, spacing: 14) {
+                weekChart("Steps", tint: Theme.steps, goal: 8000,
+                          data: days.map { d in (d, Double(health.week.first { cal.isDate($0.day, inSameDayAs: d) }?.steps ?? 0)) })
+                weekChart("Sleep h", tint: Theme.sleep, goal: s.sleepTargetHours,
+                          data: sleepByDay.map { ($0.day, $0.hours ?? 0) })
+            }
+        }
+    }
+
+    private func weekChart(_ title: String, tint: Color, goal: Double, data: [(Date, Double)]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(tint)
+            Chart {
+                ForEach(data, id: \.0) { d, v in
+                    BarMark(x: .value("Day", d, unit: .day), y: .value(title, v), width: .fixed(9))
+                        .foregroundStyle(v >= goal ? tint : tint.opacity(0.45)).clipShape(Capsule())
+                }
+                RuleMark(y: .value("Goal", goal)).lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3])).foregroundStyle(Theme.secondaryText.opacity(0.5))
+            }
+            .chartYAxis(.hidden)
+            .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption2) } }
+            .frame(height: 84)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func waterTile(_ s: DaySummary) -> some View {
@@ -200,20 +291,30 @@ struct TodayView: View {
         tileBody(title, value ?? "None", icon: icon, tint: tint, fraction: fraction, caption: value == nil ? "Not recorded" : caption)
     }
 
-    /// Health-style tile: colored title, big value, ring for goal progress.
+    /// Compact metric tile: icon and name, one big number, a goal bar underneath.
     private func tileBody(_ title: String, _ value: String, icon: String, tint: Color, fraction: Double?, caption: String?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(tint)
-                Spacer()
-                ProgressRing(fraction: fraction ?? 0, tint: tint, icon: icon)
-            }
-            Text(value).font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-            Text(caption ?? " ").font(.caption).foregroundStyle(Theme.secondaryText)
+            Label(title, systemImage: icon).font(.subheadline.weight(.semibold)).foregroundStyle(tint)
+            Text(value).font(.system(size: 28, weight: .bold, design: .rounded)).tracking(-0.5).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.7)
+            ProgressBar(fraction: fraction ?? 0, tint: tint).frame(height: 5).opacity(fraction == nil ? 0.3 : 1)
+            Text(caption ?? " ").font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(14)
-        .glass(20)
+        .glass(22)
         .accessibilityElement(children: .combine)
+    }
+
+    private func stepsTile(_ s: DaySummary) -> some View {
+        tile("Steps", s.steps.map { $0.formatted() }, icon: "figure.walk", tint: Theme.steps,
+             fraction: s.steps.map { Double($0) / 8000 }, caption: "of 8,000")
+    }
+
+    private func caffeineTile(_ s: DaySummary) -> some View {
+        NavigationLink { ScrollView { CaffeineCard().padding() }.background(GlassBackdrop()).navigationTitle("Caffeine") } label: {
+            tileBody("Caffeine", "\(Int(s.caffeineMg.rounded())) mg", icon: "cup.and.saucer.fill", tint: Theme.carbs,
+                     fraction: s.caffeineMg / 400, caption: "of 400 mg guide")
+        }.buttonStyle(Press())
     }
 
     /// Opens the sleep history when there is a night, otherwise the manual log so a missing Health import never blocks you.
@@ -226,22 +327,6 @@ struct TodayView: View {
         } else {
             NavigationLink { SleepView() } label: { body }.buttonStyle(Press())
         }
-    }
-
-    private func recoveryTile(_ s: DaySummary) -> some View {
-        Button { sheet = .checkIn } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Recovery").font(.subheadline.weight(.semibold)).foregroundStyle(s.recoveryBand.color)
-                    Spacer()
-                    Image(systemName: "heart.fill").foregroundStyle(s.recoveryBand.color).frame(width: 38, height: 38)
-                }
-                Text(s.recoveryBand.title).font(.system(.title2, design: .rounded, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
-                Text("Tap to check in").font(.caption).foregroundStyle(Theme.secondaryText)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(14)
-            .glass(20)
-        }.buttonStyle(Press())
     }
 
     private func row(_ title: String, icon: String) -> some View {

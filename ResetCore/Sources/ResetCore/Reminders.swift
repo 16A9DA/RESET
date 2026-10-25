@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ReminderCategory: String, Codable, Sendable, CaseIterable {
-    case water, meal, bedtime, wake, caffeine, movement, walk, workout, checkIn
+    case water, meal, bedtime, wake, caffeine, movement, walk, workout, checkIn, logNudge
 
     public var title: String {
         switch self {
@@ -14,6 +14,7 @@ public enum ReminderCategory: String, Codable, Sendable, CaseIterable {
         case .walk: "Planned walk"
         case .workout: "Workout prep"
         case .checkIn: "Daily check-in"
+        case .logNudge: "Nothing logged"
         }
     }
 }

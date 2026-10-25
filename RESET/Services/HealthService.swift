@@ -207,14 +207,34 @@ final class HealthService {
             let seconds = SleepPlanner.asleepSeconds(in: n, spans: asleep)
             if let record = existing.first(where: { Calendar.current.isDate($0.day, inSameDayAs: day) }) {
                 // Health keeps adding to a night until you wake. Refresh imported nights, never ones typed in by hand.
-                if record.source == .imported {
-                    record.asleepAt = n.start; record.wokeAt = n.end; record.asleepSeconds = seconds
+                if record.source == .imported || record.source == .auto {
+                    record.asleepAt = n.start; record.wokeAt = n.end; record.asleepSeconds = seconds; record.source = .imported
                 }
                 continue
             }
             let record = SleepRecord(day: day, asleepAt: n.start, wokeAt: n.end, source: .imported)
             record.asleepSeconds = seconds
             context.insert(record)
+        }
+        try? context.save()
+        await inferSleepIfMissing(context: context)
+    }
+
+    /// No watch or tracker wrote last night? Estimate it from the longest overnight stretch without steps.
+    /// Saved as `.auto`, so any real Health data or a typed entry replaces it.
+    func inferSleepIfMissing(context: ModelContext, now: Date = .now) async {
+        let cal = Calendar.current
+        let records = (try? context.fetch(FetchDescriptor<SleepRecord>())) ?? []
+        guard !records.contains(where: { cal.isDate($0.day, inSameDayAs: now) && $0.source != .auto }) else { return }
+        let from = cal.date(byAdding: .hour, value: -34, to: cal.startOfDay(for: now)) ?? now
+        let vehicle = await vehicleSpans(from: from, to: now)
+        guard let buckets = try? await cleanBuckets(.stepCount, unit: .count(), from: from, vehicle: vehicle),
+              let span = SleepInference.lastNight(stepTimes: buckets.map(\.start), now: now) else { return }
+        let day = cal.startOfDay(for: span.end)
+        if let auto = records.first(where: { cal.isDate($0.day, inSameDayAs: day) }) {
+            auto.asleepAt = span.start; auto.wokeAt = span.end; auto.asleepSeconds = nil
+        } else {
+            context.insert(SleepRecord(day: day, asleepAt: span.start, wokeAt: span.end, source: .auto))
         }
         try? context.save()
     }

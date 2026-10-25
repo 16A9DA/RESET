@@ -39,6 +39,7 @@ enum DaySummaryBuilder {
             waterMl: water, waterGoalMl: profile?.effectiveWaterGoalMl, caffeineMg: caffeine,
             workSeconds: seconds(.work), universitySeconds: seconds(.university),
             recoveryBand: r.band, recoveryReasons: r.reasons)
+        summary.recoveryScore = r.score; summary.recoveryComponents = r.components; summary.recoveryAdvice = r.advice
         summary.carbsG = nut.total.carbsG; summary.carbsTargetG = plan?.carbsG ?? 0
         summary.fatG = nut.total.fatG; summary.fatTargetG = plan?.fatG ?? 0
         return summary

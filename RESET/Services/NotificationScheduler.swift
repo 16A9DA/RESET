@@ -75,7 +75,7 @@ final class NotificationScheduler: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Off by default: intrusive categories the user should opt into.
-    static let defaultOn: Set<ReminderCategory> = [.water, .meal, .bedtime, .caffeine]
+    static let defaultOn: Set<ReminderCategory> = [.water, .meal, .bedtime, .caffeine, .logNudge]
 
     static func setEnabled(_ cat: ReminderCategory, _ on: Bool, value: Int? = nil, in context: ModelContext) {
         if let p = pref(cat.rawValue, in: context) {
@@ -209,6 +209,12 @@ enum Planner {
         if NotificationScheduler.enabled(.checkIn, in: context) {
             let has = ((try? context.fetch(FetchDescriptor<CheckIn>())) ?? []).contains { cal.isDateInToday($0.at) && ($0.kind == .energy || $0.kind == .fatigue) }
             out += DailyReminders.checkIn(shape: shape, hasCheckInToday: has, now: now)
+        }
+        if NotificationScheduler.enabled(.logNudge, in: context) {
+            let hasMeal = ((try? context.fetch(FetchDescriptor<MealRecord>())) ?? []).filter { cal.isDateInToday($0.at) }.count
+            let hasWater = ((try? context.fetch(FetchDescriptor<WaterRecord>())) ?? []).contains { cal.isDateInToday($0.at) }
+            let hasSleep = ((try? context.fetch(FetchDescriptor<SleepRecord>())) ?? []).contains { cal.isDateInToday($0.day) }
+            out += DailyReminders.missingLogs(shape: shape, mealsToday: hasMeal, waterToday: hasWater, sleepToday: hasSleep, now: now)
         }
         if NotificationScheduler.enabled(.meal, in: context) {
             let quiet = NotificationScheduler.pref("meal.quiet", in: context)?.snoozedUntil

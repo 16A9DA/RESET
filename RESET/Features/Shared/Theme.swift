@@ -4,8 +4,11 @@ enum Theme {
     private static func dynamic(dark: UIColor, light: UIColor) -> Color {
         Color(UIColor { $0.userInterfaceStyle == .dark ? dark : light })
     }
-    static let background = dynamic(dark: UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 1), light: UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1))
-    static let card = dynamic(dark: UIColor(red: 0.11, green: 0.11, blue: 0.14, alpha: 1), light: .white)
+    static let background = dynamic(dark: UIColor(red: 0.047, green: 0.051, blue: 0.059, alpha: 1), light: UIColor(red: 0.953, green: 0.949, blue: 0.937, alpha: 1))
+    static let card = dynamic(dark: UIColor(red: 0.094, green: 0.102, blue: 0.118, alpha: 1), light: .white)
+    /// Slightly lifted surface for things that sit on a card, such as chart tracks.
+    static let raised = dynamic(dark: UIColor(red: 0.141, green: 0.153, blue: 0.176, alpha: 1), light: UIColor(red: 0.925, green: 0.922, blue: 0.91, alpha: 1))
+    static let hairline = dynamic(dark: UIColor(white: 1, alpha: 0.07), light: UIColor(white: 0, alpha: 0.07))
     static let accent = Color(red: 0.80, green: 1.00, blue: 0.20)
     static let food = Color.orange
     static let water = Color.cyan
@@ -20,30 +23,18 @@ enum Theme {
     static let low = Color(red: 1.0, green: 0.45, blue: 0.40)
 }
 
-/// Soft colour behind the glass so it has something to refract.
+/// Flat app background. Kept under its old name so every screen picks it up.
 struct GlassBackdrop: View {
-    @Environment(\.colorScheme) private var scheme
-
-    var body: some View {
-        ZStack {
-            Theme.background
-            Circle().fill(Theme.accent.opacity(scheme == .dark ? 0.22 : 0.35)).frame(width: 320).blur(radius: 90).offset(x: -130, y: -260)
-            Circle().fill(Color(red: 0.25, green: 0.45, blue: 1).opacity(scheme == .dark ? 0.28 : 0.2)).frame(width: 360).blur(radius: 100).offset(x: 160, y: 120)
-            Circle().fill(Color(red: 0.7, green: 0.3, blue: 1).opacity(scheme == .dark ? 0.18 : 0.12)).frame(width: 280).blur(radius: 90).offset(x: -120, y: 380)
-        }
-        .ignoresSafeArea()
-    }
+    var body: some View { Theme.background.ignoresSafeArea() }
 }
 
 extension View {
-    /// Liquid Glass on iOS 26 and later, a frosted material before that.
-    @ViewBuilder func glass(_ radius: CGFloat = 20) -> some View {
+    /// Solid surface with a hairline edge and a soft drop. Name kept so every screen picks it up.
+    func glass(_ radius: CGFloat = 20) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        if #available(iOS 26, *) {
-            self.glassEffect(.regular, in: shape)
-        } else {
-            self.background(.ultraThinMaterial, in: shape).overlay(shape.strokeBorder(Color.white.opacity(0.15)))
-        }
+        return self.background(Theme.card, in: shape)
+            .overlay(shape.strokeBorder(Theme.hairline))
+            .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
     }
 }
 
@@ -54,16 +45,13 @@ struct Card<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let title {
-                Text(title.uppercased())
-                    .font(.caption.weight(.semibold))
-                    .tracking(0.8)
-                    .foregroundStyle(Theme.secondaryText)
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.secondaryText)
             }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .glass(20)
+        .glass(22)
     }
 }
 
@@ -189,5 +177,60 @@ enum Fmt {
     static func hours(_ seconds: TimeInterval) -> String {
         let m = Int((seconds / 60).rounded())
         return "\(m / 60)h \(m % 60)m"
+    }
+}
+
+
+/// Open arc gauge, 270 degrees. Value sits inside. Animates from the live value when it changes.
+struct ArcGauge: View {
+    var fraction: Double
+    var tint: Color
+    var lineWidth: CGFloat = 14
+    private let span = 0.75
+    var body: some View {
+        ZStack {
+            Circle().trim(from: 0, to: span).stroke(Theme.raised, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            Circle().trim(from: 0, to: span * min(1, max(0.001, fraction)))
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        }
+        .rotationEffect(.degrees(135))
+        .animation(.spring(duration: 0.6, bounce: 0), value: fraction)
+    }
+}
+
+/// Thin labelled bar used for the parts of a score. Tint carries the status, the number carries the detail.
+struct ComponentBar: View {
+    var title: String
+    var fraction: Double
+    var detail: String
+    var tint: Color
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(title).font(.footnote.weight(.semibold))
+                Spacer()
+                Text(detail).font(.caption).foregroundStyle(Theme.secondaryText).monospacedDigit()
+            }
+            ProgressBar(fraction: fraction, tint: tint).frame(height: 5)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Stacked macro split for the day: how the calories eaten divide into protein, carbs and fat.
+struct MacroSplit: View {
+    var protein: Double, carbs: Double, fat: Double
+    var body: some View {
+        let kcal = [protein * 4, carbs * 4, fat * 9]
+        let total = max(kcal.reduce(0, +), 1)
+        GeometryReader { geo in
+            HStack(spacing: 3) {
+                ForEach(Array(zip(kcal, [Theme.protein, Theme.carbs, Theme.fat]).enumerated()), id: \.offset) { _, pair in
+                    Capsule().fill(pair.1).frame(width: max(4, (geo.size.width - 6) * pair.0 / total))
+                }
+            }
+        }
+        .frame(height: 10)
+        .opacity(kcal.reduce(0, +) > 0 ? 1 : 0.25)
     }
 }

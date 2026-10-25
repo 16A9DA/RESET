@@ -99,3 +99,14 @@ private func food(_ name: String, kcal: Double, caffeine: Double? = nil) -> Food
     let ok = EatCheck.verdict(items: [toast], remainingKcal: 900, caffeineTodayMg: 0, hoursToBed: 10, allergies: [], proteinLeftG: 10)
     #expect(!ok.reasons.contains { $0.contains("Pair it") })
 }
+
+@Test func missingLogNudgesDisappearOnceLogged() {
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
+    let day = cal.startOfDay(for: Date(timeIntervalSince1970: 1_800_000_000))
+    let shape = DayShape(wakeMinute: 7 * 60, bedMinute: 23 * 60)
+    let now = day.addingTimeInterval(6 * 3600)
+    let empty = DailyReminders.missingLogs(shape: shape, mealsToday: 0, waterToday: false, sleepToday: false, now: now, days: 1, calendar: cal)
+    #expect(empty.count == 4)
+    let done = DailyReminders.missingLogs(shape: shape, mealsToday: 2, waterToday: true, sleepToday: true, now: now, days: 1, calendar: cal)
+    #expect(done.isEmpty)
+}

@@ -60,3 +60,28 @@ private func at(_ h: Int, _ m: Int = 0, day: Int = 10) -> Date {
     let r = SleepPlanner.caffeineReminders(shape: DayShape(wakeMinute: 420, bedMinute: 23 * 60), hoursBefore: 8, now: at(8), calendar: cal)
     #expect(r.first?.fireDate == at(15))
 }
+
+@Test func inferredSleepIsLongestQuietNightGap() {
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
+    let today = cal.startOfDay(for: Date(timeIntervalSince1970: 1_800_000_000))
+    func at(_ h: Double) -> Date { today.addingTimeInterval(h * 3600) }
+    let steps = [at(-5), at(-3), at(-1.2), at(7.5), at(8), at(9)]   // last steps 22:48, first 07:30
+    let s = SleepInference.lastNight(stepTimes: steps, now: at(10), calendar: cal)
+    #expect(s != nil)
+    #expect(abs((s!.end.timeIntervalSince(s!.start)) / 3600 - 8.3) < 0.2)
+}
+
+@Test func noInferenceWhenNoLongGap() {
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
+    let today = cal.startOfDay(for: Date(timeIntervalSince1970: 1_800_000_000))
+    let steps = stride(from: -4.0, to: 10.0, by: 1.0).map { today.addingTimeInterval($0 * 3600) }
+    #expect(SleepInference.lastNight(stepTimes: steps, now: today.addingTimeInterval(10 * 3600), calendar: cal) == nil)
+}
+
+@Test func recoveryScoreBlendsSleepFoodAndSteps() {
+    let good = RecoveryEngine.assess(RecoveryInput(sleepHours: [8, 8, 8], intakeShare: 0.95, yesterdaySteps: 9000))
+    let bad = RecoveryEngine.assess(RecoveryInput(sleepHours: [4.5, 5, 5], intakeShare: 0.4, yesterdaySteps: 1500))
+    #expect((good.score ?? 0) > 85)
+    #expect((bad.score ?? 100) < 55)
+    #expect(RecoveryEngine.assess(RecoveryInput()).score == nil)
+}

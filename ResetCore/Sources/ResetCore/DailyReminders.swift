@@ -69,4 +69,33 @@ public enum DailyReminders {
                                    body: "How is your energy today? Ten seconds helps tomorrow's suggestions.")
         }
     }
+
+    /// Gentle "you have not logged this yet" prompts. Each one only exists while its log is still empty, and the plan
+    /// is rebuilt after every log, so logging cancels it. At most three a day.
+    public static func missingLogs(shape: DayShape, mealsToday: Int, waterToday: Bool, sleepToday: Bool, now: Date,
+                                   days: Int = 2, calendar: Calendar = .current) -> [PlannedReminder] {
+        var out: [PlannedReminder] = []
+        for offset in 0..<days {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: now) else { continue }
+            let w = shape.window(on: day, calendar: calendar)
+            let today = offset == 0
+            func add(_ key: String, _ t: Date, _ title: String, _ body: String) {
+                guard t > now.addingTimeInterval(60), w.contains(t) else { return }
+                out.append(PlannedReminder(id: "nolog.\(key).\(Int(t.timeIntervalSince1970))", category: .logNudge, fireDate: t, title: title, body: body))
+            }
+            if !(today && sleepToday) {
+                add("sleep", w.start.addingTimeInterval(90 * 60), "Last night's sleep", "No sleep logged for last night. Open Sleep to add it, or ignore this if you wore nothing to bed.")
+            }
+            if !(today && mealsToday > 0) {
+                add("meal", w.start.addingTimeInterval(w.duration * 0.45), "No food logged yet", "Snap a photo or type what you ate so today's totals stay honest.")
+            }
+            if !(today && mealsToday >= 2) {
+                add("meal2", w.end.addingTimeInterval(-3.5 * 3600), "Log today's meals", "Only \(today ? "\(mealsToday) meal" + (mealsToday == 1 ? "" : "s") : "a few meals") logged so far. Add what you ate before the day ends.")
+            }
+            if !(today && waterToday) {
+                add("water", w.start.addingTimeInterval(w.duration * 0.6), "No water logged", "Nothing logged today. Tap to add a glass.")
+            }
+        }
+        return out
+    }
 }
