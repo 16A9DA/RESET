@@ -10,13 +10,13 @@ enum Theme {
     static let raised = dynamic(dark: UIColor(red: 0.141, green: 0.153, blue: 0.176, alpha: 1), light: UIColor(red: 0.925, green: 0.922, blue: 0.91, alpha: 1))
     static let hairline = dynamic(dark: UIColor(white: 1, alpha: 0.07), light: UIColor(white: 0, alpha: 0.07))
     static let accent = Color(red: 0.80, green: 1.00, blue: 0.20)
-    static let food = Color.orange
-    static let water = Color.cyan
-    static let steps = Color.green
-    static let sleep = Color.indigo
-    static let protein = Color.pink
-    static let carbs = Color.yellow
-    static let fat = Color.purple
+    static let food = Color(red: 1.00, green: 0.69, blue: 0.28)
+    static let water = Color(red: 0.36, green: 0.78, blue: 1.00)
+    static let steps = accent
+    static let sleep = Color(red: 0.64, green: 0.57, blue: 1.00)
+    static let protein = Color(red: 1.00, green: 0.47, blue: 0.58)
+    static let carbs = Color(red: 0.96, green: 0.84, blue: 0.38)
+    static let fat = Color(red: 0.42, green: 0.86, blue: 0.80)
     static let secondaryText = Color.primary.opacity(0.62)
     static let good = Color(red: 0.35, green: 0.85, blue: 0.55)
     static let warn = Color(red: 1.0, green: 0.72, blue: 0.25)
@@ -233,4 +233,89 @@ struct MacroSplit: View {
         .frame(height: 10)
         .opacity(kcal.reduce(0, +) > 0 ? 1 : 0.25)
     }
+}
+
+
+/// Calories and macros in one compact block. Shared by Today and Nutrition so both read the same.
+struct FoodSummary: View {
+    var kcal: Double
+    var target: Double?
+    var counting: Bool
+    var protein: (eaten: Double, goal: Double)
+    var carbs: (eaten: Double, goal: Double)
+    var fat: (eaten: Double, goal: Double)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Food", systemImage: "fork.knife").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.food)
+                Spacer()
+                if counting, let t = target {
+                    let left = t - kcal
+                    Text(left >= 0 ? "\(Int(left.rounded())) left" : "\(Int((-left).rounded())) over")
+                        .font(.footnote).foregroundStyle(left >= 0 ? Theme.secondaryText : Theme.warn).monospacedDigit()
+                }
+            }
+            if counting {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text("\(Int(kcal.rounded()))").font(.system(size: 40, weight: .bold, design: .rounded)).tracking(-1).monospacedDigit()
+                    Text(target.map { "/ \(Int($0.rounded())) kcal" } ?? "kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                }
+                if let t = target { ProgressBar(fraction: kcal / t, tint: Theme.food).frame(height: 6) }
+            } else {
+                Text("\(Int(protein.eaten.rounded())) g protein").font(.system(size: 32, weight: .bold, design: .rounded)).monospacedDigit()
+            }
+            HStack(spacing: 14) {
+                macro("P", protein, Theme.protein)
+                macro("C", carbs, Theme.carbs)
+                macro("F", fat, Theme.fat)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func macro(_ name: String, _ m: (eaten: Double, goal: Double), _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Text(name).font(.caption2.weight(.bold)).foregroundStyle(tint)
+                Text(m.goal > 0 ? "\(Int(m.eaten.rounded())) / \(Int(m.goal.rounded()))" : "\(Int(m.eaten.rounded()))")
+                    .font(.caption).foregroundStyle(Theme.secondaryText).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+            }
+            if m.goal > 0 { ProgressBar(fraction: m.eaten / m.goal, tint: tint).frame(height: 3) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// One quiet list group. Rows sit inside a single surface, separated by hairlines. Replaces a stack of separate cards.
+struct ListGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(spacing: 0) { content }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glass(20)
+    }
+}
+
+/// Row for a `ListGroup`: icon, title, optional trailing value, chevron.
+struct GroupRow: View {
+    var title: String
+    var icon: String
+    var value: String?
+    var tint: Color = Theme.secondaryText
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.body.weight(.medium)).foregroundStyle(tint).frame(width: 24)
+            Text(title).font(.body)
+            Spacer()
+            if let value { Text(value).font(.subheadline).foregroundStyle(Theme.secondaryText).monospacedDigit() }
+            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Theme.secondaryText.opacity(0.6))
+        }
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .contentShape(Rectangle())
+    }
+}
+
+struct GroupDivider: View {
+    var body: some View { Rectangle().fill(Theme.hairline).frame(height: 1).padding(.leading, 52) }
 }

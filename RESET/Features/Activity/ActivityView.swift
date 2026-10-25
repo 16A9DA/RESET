@@ -20,9 +20,15 @@ struct ActivityView: View {
                     if !health.authRequested { healthCard }
                     stepsCard
                     WalkCard()
-                    navRow("Workout", icon: "dumbbell") { ScrollView { WorkoutCard().padding() }.background(GlassBackdrop()).navigationTitle("Workout") }
-                    navRow("Sleep", icon: "moon") { SleepView() }
-                    navRow("Work and university", icon: "briefcase") { TimeTrackingView() }
+                    ListGroup {
+                        NavigationLink { ScrollView { WorkoutCard().padding() }.background(GlassBackdrop()).navigationTitle("Workout") } label: {
+                            GroupRow(title: "Workout", icon: "dumbbell", tint: Theme.accent)
+                        }.buttonStyle(Press())
+                        GroupDivider()
+                        NavigationLink { SleepView() } label: { GroupRow(title: "Sleep", icon: "moon.fill", tint: Theme.sleep) }.buttonStyle(Press())
+                        GroupDivider()
+                        NavigationLink { TimeTrackingView() } label: { GroupRow(title: "Work and university", icon: "briefcase", tint: Theme.carbs) }.buttonStyle(Press())
+                    }
                     history
                 }
                 .padding()
@@ -41,17 +47,6 @@ struct ActivityView: View {
         }
     }
 
-    private func navRow<D: View>(_ title: String, icon: String, @ViewBuilder destination: @escaping () -> D) -> some View {
-        NavigationLink(destination: destination) {
-            HStack {
-                Label(title, systemImage: icon).font(.headline)
-                Spacer()
-                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
-            }
-            .padding(16).glass(20)
-        }.buttonStyle(Press())
-    }
-
     private var healthCard: some View {
         Card {
             Label("Apple Health", systemImage: "heart").font(.headline)
@@ -62,20 +57,24 @@ struct ActivityView: View {
     }
 
     private var stepsCard: some View {
-        Card {
-            HStack(alignment: .firstTextBaseline) {
-                Label("Steps", systemImage: "figure.walk").font(.headline)
-                Spacer()
-                Text(health.todaySteps.map { $0.formatted() } ?? "None").font(.system(.title, design: .rounded, weight: .bold)).monospacedDigit()
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Steps", systemImage: "figure.walk").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.steps)
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(health.todaySteps.map { $0.formatted() } ?? "None").font(.system(size: 40, weight: .bold, design: .rounded)).tracking(-1).monospacedDigit()
+                Text("/ 8,000").font(.subheadline).foregroundStyle(Theme.secondaryText)
             }
+            ProgressBar(fraction: Double(health.todaySteps ?? 0) / 8000, tint: Theme.steps).frame(height: 6)
             if !health.week.isEmpty {
                 Chart(health.week) { d in
-                    BarMark(x: .value("Day", d.day, unit: .day), y: .value("Steps", d.steps))
-                        .foregroundStyle(Theme.accent)
+                    BarMark(x: .value("Day", d.day, unit: .day), y: .value("Steps", d.steps), width: .fixed(10))
+                        .foregroundStyle(d.steps >= 8000 ? Theme.steps : Theme.steps.opacity(0.4)).clipShape(Capsule())
                 }
-                .frame(height: 90)
+                .chartYAxis(.hidden)
+                .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption2) } }
+                .frame(height: 70)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
     }
 
     @ViewBuilder private var history: some View {

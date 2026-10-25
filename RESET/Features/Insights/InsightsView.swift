@@ -26,6 +26,7 @@ struct InsightsView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     weekHero(days)
+                    weekCharts(days)
                     standout(days)
                     workChart
                     weightCard
@@ -45,11 +46,39 @@ struct InsightsView: View {
         return Card(title: "This week") {
             HStack(alignment: .top, spacing: 12) {
                 stat("Sleep", avg(thisWeek.compactMap(\.sleepHours)), avg(lastWeek.compactMap(\.sleepHours)), unit: "h", good: .up)
-                stat("Work", thisWeek.contains { $0.workHours > 0 } ? thisWeek.map(\.workHours).reduce(0, +) : nil,
-                     lastWeek.contains { $0.workHours > 0 } ? lastWeek.map(\.workHours).reduce(0, +) : nil, unit: "h", good: .none)
+                stat("Steps", avg(health.week.map { Double($0.steps) }.filter { $0 > 0 }), nil, unit: "", good: .up)
                 stat("Workouts", Double(thisWeek.filter(\.trained).count), Double(lastWeek.filter(\.trained).count), unit: "", good: .up)
             }
         }
+    }
+
+    private func weekCharts(_ days: [InsightDay]) -> some View {
+        let cal = Calendar.current
+        let week = (0..<7).reversed().compactMap { cal.date(byAdding: .day, value: -$0, to: cal.startOfDay(for: .now)) }
+        let target = profile?.sleepTargetHours ?? 8
+        return Card {
+            HStack(alignment: .top, spacing: 16) {
+                miniBars("Steps", Theme.steps, 8000, week.map { d in (d, Double(health.week.first { cal.isDate($0.day, inSameDayAs: d) }?.steps ?? 0)) })
+                miniBars("Sleep h", Theme.sleep, target, week.map { d in (d, sleeps.first { cal.isDate($0.day, inSameDayAs: d) }?.hours ?? 0) })
+            }
+        }
+    }
+
+    private func miniBars(_ title: String, _ tint: Color, _ goal: Double, _ data: [(Date, Double)]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(tint)
+            Chart {
+                ForEach(data, id: \.0) { d, v in
+                    BarMark(x: .value("Day", d, unit: .day), y: .value(title, v), width: .fixed(9))
+                        .foregroundStyle(v >= goal ? tint : tint.opacity(0.4)).clipShape(Capsule())
+                }
+                RuleMark(y: .value("Goal", goal)).lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3])).foregroundStyle(Theme.secondaryText.opacity(0.5))
+            }
+            .chartYAxis(.hidden)
+            .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption2) } }
+            .frame(height: 90)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private enum Good { case up, none }

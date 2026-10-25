@@ -7,6 +7,7 @@ struct NutritionView: View {
     @Query private var profiles: [UserProfile]
     @Query(sort: \MealRecord.at, order: .reverse) private var meals: [MealRecord]
     @State private var adding = false
+    @State private var canEat = false
     @Query private var caffeines: [CaffeineRecord]
     @State private var editing: MealRecord?
 
@@ -21,16 +22,12 @@ struct NutritionView: View {
                     summary
                     nextMeal
                     WaterCard()
-                    if caffeineMg > 0 {
+                    ListGroup {
                         NavigationLink { ScrollView { CaffeineCard().padding() }.background(GlassBackdrop()).navigationTitle("Caffeine") } label: {
-                            HStack {
-                                Label("Caffeine", systemImage: "cup.and.saucer").font(.headline)
-                                Spacer()
-                                Text("\(Int(caffeineMg.rounded())) mg").foregroundStyle(Theme.secondaryText).monospacedDigit()
-                                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Theme.secondaryText)
-                            }
-                            .padding(16).glass(20)
+                            GroupRow(title: "Caffeine", icon: "cup.and.saucer", value: caffeineMg > 0 ? "\(Int(caffeineMg.rounded())) mg" : nil, tint: Theme.carbs)
                         }.buttonStyle(Press())
+                        GroupDivider()
+                        Button { canEat = true } label: { GroupRow(title: "Can I eat this?", icon: "questionmark.circle", tint: Theme.accent) }.buttonStyle(Press())
                     }
                     if today.isEmpty {
                         EmptyNote(systemImage: "fork.knife", title: "Nothing logged yet",
@@ -60,6 +57,7 @@ struct NutritionView: View {
                 ToolbarItem(placement: .topBarTrailing) { Button { adding = true } label: { Image(systemName: "plus") }.accessibilityLabel("Log food") }
             }
             .sheet(isPresented: $adding) { AddFoodView() }
+            .sheet(isPresented: $canEat) { CanIEatView() }
             .sheet(item: $editing) { MealEditor(meal: $0) }
         }
     }
@@ -69,11 +67,11 @@ struct NutritionView: View {
         if let a = MacroCoach.advise(consumed: totals.total, targetKcal: profile?.calorieCountingEnabled == false ? nil : plan?.targetKcal,
                                      targetProteinG: plan?.proteinG ?? 0, weightKg: profile?.weightKg ?? 75,
                                      hour: Calendar.current.component(.hour, from: .now), mealsLogged: totals.mealCount) {
-            Card {
-                Label("Next meal", systemImage: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(Theme.secondaryText)
-                Text(a.headline).font(.system(.headline, design: .rounded))
-                Text(a.detail).font(.subheadline).foregroundStyle(Theme.secondaryText)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(a.headline).font(.system(.subheadline, design: .rounded, weight: .semibold))
+                Text(a.detail).font(.footnote).foregroundStyle(Theme.secondaryText)
             }
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4)
         }
     }
 
@@ -81,24 +79,10 @@ struct NutritionView: View {
 
     private var summary: some View {
         let plan = profile?.energyPlan
-        let counting = profile?.calorieCountingEnabled != false
-        return Card {
-            HStack(alignment: .firstTextBaseline) {
-                if counting {
-                    Text("\(Int(totals.total.kcal.rounded()))").font(.system(.largeTitle, design: .rounded, weight: .bold)).monospacedDigit()
-                    + Text(plan?.targetKcal.map { " / \(Int($0.rounded())) kcal" } ?? " kcal").foregroundStyle(Theme.secondaryText)
-                } else {
-                    Text("\(Int(totals.total.proteinG.rounded())) g protein").font(.system(.title, design: .rounded, weight: .bold))
-                }
-                Spacer()
-            }
-            if counting, let t = plan?.targetKcal { ProgressBar(fraction: totals.total.kcal / t) }
-            if counting {
-                MacroRow(name: "Protein", eaten: totals.total.proteinG, goal: plan?.proteinG ?? 0, tint: Theme.protein)
-                MacroRow(name: "Carbs", eaten: totals.total.carbsG, goal: plan?.carbsG ?? 0, tint: Theme.carbs)
-                MacroRow(name: "Fat", eaten: totals.total.fatG, goal: plan?.fatG ?? 0, tint: Theme.fat)
-            }
-        }
+        let t = totals.total
+        return FoodSummary(kcal: t.kcal, target: plan?.targetKcal, counting: profile?.calorieCountingEnabled != false,
+                           protein: (t.proteinG, plan?.proteinG ?? 0), carbs: (t.carbsG, plan?.carbsG ?? 0), fat: (t.fatG, plan?.fatG ?? 0))
+            .padding(18).glass(24)
     }
 }
 
