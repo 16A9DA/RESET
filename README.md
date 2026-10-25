@@ -10,6 +10,14 @@
   Source available. All rights reserved.
 </p>
 
+## Preview
+
+<p align="center">
+  <a href="docs/preview.mp4"><img src="docs/preview.jpg" width="240" alt="RE:SET AI preview video"></a>
+</p>
+
+<p align="center"><a href="docs/preview.mp4">Watch the 25 second preview</a></p>
+
 ## Overview
 
 Native iPhone app. SwiftUI, SwiftData, local first. No account, no server. Your phone collects the data. Rules turn it into guidance. AI only helps read food and answer chat.
