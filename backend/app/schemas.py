@@ -57,7 +57,7 @@ class AIRequest(BaseModel):
     system: Annotated[str, Field(max_length=20_000)]
     messages: Annotated[list[Message], Field(max_length=40)]
     tools: Annotated[list[Tool], Field(max_length=20)] = []
-    maxTokens: Annotated[int, Field(ge=1, le=2_000)] = 1_500
+    maxTokens: Annotated[int, Field(ge=1, le=8_000)] = 1_500
 
 
 class ToolCall(BaseModel):

@@ -48,3 +48,11 @@ node_modules/
 
 package.json
 package-lock.json
+
+brag-output*/
+
+# Personal screenshots and generated media
+docs/IMG_*
+docs/shots/
+*.PNG
+.hyperframes/

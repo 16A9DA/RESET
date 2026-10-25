@@ -90,6 +90,7 @@ enum AIConfig {
             case .unauthorized: return (false, "The service rejected the key. Check that it is correct and has access to this model.")
             case .rateLimited: return (false, "Connected, but you are being rate limited. Try again shortly.")
             case .offline: return (false, "No internet connection.")
+            case .rejected: return (false, e.localizedDescription)
             default: return (false, e.localizedDescription + " If this is a 4xx error, the model name may be wrong for your account.")
             }
         } catch { return (false, error.localizedDescription) }

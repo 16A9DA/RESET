@@ -46,7 +46,7 @@ struct InsightsView: View {
         return Card(title: "This week") {
             HStack(alignment: .top, spacing: 12) {
                 stat("Sleep", avg(thisWeek.compactMap(\.sleepHours)), avg(lastWeek.compactMap(\.sleepHours)), unit: "h", good: .up)
-                stat("Steps", avg(health.week.map { Double($0.steps) }.filter { $0 > 0 }), nil, unit: "", good: .up)
+                stat("Steps", avg(health.week.map { Double($0.steps) }.filter { $0 > 0 }), nil, unit: "", good: .up, whole: true)
                 stat("Workouts", Double(thisWeek.filter(\.trained).count), Double(lastWeek.filter(\.trained).count), unit: "", good: .up)
             }
         }
@@ -83,9 +83,9 @@ struct InsightsView: View {
 
     private enum Good { case up, none }
 
-    private func stat(_ title: String, _ now: Double?, _ before: Double?, unit: String, good: Good) -> some View {
+    private func stat(_ title: String, _ now: Double?, _ before: Double?, unit: String, good: Good, whole: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(now.map { $0.formatted(.number.precision(.fractionLength(0...1))) + (unit.isEmpty ? "" : " " + unit) } ?? "None")
+            Text(now.map { $0.formatted(.number.precision(.fractionLength(whole ? 0...0 : 0...1))) + (unit.isEmpty ? "" : " " + unit) } ?? "None")
                 .font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
             Text(title).font(.caption).foregroundStyle(Theme.secondaryText)
             if let now, let before, abs(now - before) >= 0.1 {

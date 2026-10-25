@@ -93,3 +93,18 @@ private func bodyJSON(_ c: Capture) throws -> [String: Any] {
     let p = OpenAICompatibleProvider.openAI(apiKey: "k", model: "", http: Capture("{}"))
     await #expect(throws: AIError.missingCredentials) { try await p.complete(AIRequest(system: "", messages: [])) }
 }
+
+@Test func retryPolicyBacksOffOnTransientErrorsOnly() {
+    #expect(NetPolicy.retryDelay(status: 529, attempt: 0, retryAfter: nil) == 0.6)
+    #expect(NetPolicy.retryDelay(status: 503, attempt: 1, retryAfter: nil) == 1.2)
+    #expect(NetPolicy.retryDelay(status: 503, attempt: 2, retryAfter: nil) == nil)   // out of attempts
+    #expect(NetPolicy.retryDelay(status: 400, attempt: 0, retryAfter: nil) == nil)   // our fault, retrying will not help
+    #expect(NetPolicy.retryDelay(status: 429, attempt: 0, retryAfter: "3") == 3)
+    #expect(NetPolicy.retryDelay(status: 429, attempt: 0, retryAfter: "120") == nil) // quota spent, fail fast
+}
+
+@Test func providerErrorMessagesAreExtracted() {
+    #expect(NetPolicy.message(from: Data(#"{"type":"error","error":{"type":"not_found_error","message":"model: nope"}}"#.utf8)) == "model: nope")
+    #expect(NetPolicy.message(from: Data(#"{"detail":"Request too large."}"#.utf8)) == "Request too large.")
+    #expect(NetPolicy.message(from: Data("<html>".utf8)) == "")
+}

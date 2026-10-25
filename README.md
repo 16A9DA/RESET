@@ -18,32 +18,36 @@ Design rule: the app removes work. It never adds it.
 
 * Work, university and gym time record themselves from places you save. Step out and come back the same day and the session continues.
 * Steps, workouts and sleep come from Apple Health. Steps ignore time spent driving or cycling, so a bus or scooter ride does not count as walking.
-* Sleep can also be logged by hand if Health has none.
+* Sleep comes from Health. With no watch or tracker, the app estimates last night from the longest overnight stretch with no steps, and labels it as an estimate. Real Health data or a typed entry replaces it.
 * Food is logged by describing it, photographing it or scanning a barcode.
-* Reminders follow your own habits, such as the time you usually eat lunch.
+* Reminders follow your own habits, such as the time you usually eat lunch. If sleep, food or water is still empty, one gentle nudge asks. Logging cancels it.
 * Missing data shows as missing. Nothing is guessed. Nothing is shaming.
 
 ## Features
 
 ### Today
 * One priority sentence.
-* Work, university and gym rows. Each shows start to end and the total, for example `09:02 to 17:40` and `8h 38m`.
-* Food with protein, carbs and fat against your guide. Water, steps, sleep and recovery in Health style tiles with goal rings.
-* Floating log bar: describe, photo, barcode.
-* Can I eat this?
+* Food first: calories left, protein, carbs and fat against your guide.
+* Water and sleep next, side by side. Tap water to add a glass.
+* One small strip for recovery and steps.
+* Work, university and gym rows, only if you use them. Each shows start to end and the total, for example `09:02 to 17:40` and `8h 38m`.
+* Floating log bar: describe, photo, barcode. A plate with several dishes logs every dish.
 
 ### Activity
 * Steps with a weekly chart, walk timer, workouts imported from Health.
-* Workout planner. Reset clears the plan. Can't today gives a walk and a small food adjustment from today's log.
+* Workout, Sleep and Work and university in one list. Recent sessions below.
 
 ### Nutrition
-* Calories and protein against your guide.
-* Next meal card. Carb heavy day suggests protein. High fat suggests lean. Over the guide suggests a light meal.
-* Water and caffeine. Caffeine from any logged drink is added by itself.
+* Food summary as on Today.
+* One line for the next meal. Carb heavy day suggests protein. High fat suggests lean. Over the guide suggests a light meal.
+* Water with quick add buttons. Caffeine and Can I eat this? in one list. Caffeine from any logged drink is added by itself.
+* Today's meals, editable.
 
 ### Insights
-* This week against last week.
+* This week: sleep, steps and workouts.
+* Steps and sleep charts for the week against your goals.
 * Patterns found in your own data, such as sleep after long work days and sleep after training. Shown only with enough days.
+* Weight trend.
 
 ### Coach
 * Chat that reads your data through a fixed set of tools. It cannot delete anything. Simple questions work with no AI.
@@ -51,7 +55,7 @@ Design rule: the app removes work. It never adds it.
 ### Also
 * Widgets: Home Screen, Lock Screen, quick action.
 * Siri and Shortcuts: log water.
-* Liquid Glass design on iOS 26. Frosted material on earlier versions.
+* Dark, flat design. Solid cards, hairline edges, one lime accent. Muted data colours for food, water, sleep and macros.
 
 ## How it works
 
@@ -62,7 +66,7 @@ Design rule: the app removes work. It never adds it.
 * Calorie target: Mifflin St Jeor, activity multiplier, capped deficit. Protein default is 1.8 g per kg.
 * Everything calorie related is an estimate and is labelled as one.
 
-* Recovery is a rule based lifestyle indicator. It weighs recent sleep, energy and fatigue check-ins, workload, hard sessions, and yesterday's water, food intake and steps. One strained signal never makes it Low.
+* Recovery is a rule based lifestyle indicator with a 0 to 100 score. It blends recent sleep, yesterday's food, water and steps, plus workload, hard sessions and check-ins. Signals with no data are left out, never guessed. One strained signal never makes it Low.
 
 ## Install
 
@@ -96,6 +100,8 @@ AI is off until you allow it. Open Settings, AI and data sources, pick a provide
 * Anthropic: default model `claude-haiku-5-5`, editable.
 * OpenAI or compatible: you enter the model name. It must accept images.
 * Proxy: your own https server holds the key. See `backend/`.
+
+The client retries rate limits and overloaded replies with a short backoff, and shows the provider's own error message when a request is refused, for example a wrong model name. The proxy allows replies up to 8,000 tokens so multi dish meals are not cut off.
 
 ```sh
 cd backend
@@ -137,9 +143,9 @@ Rule: logic lives in `ResetCore`. Views call it. `ResetCore` has no UI, SwiftDat
 
 ## Limits
 
-* Not yet run on a physical iPhone. Automatic features are unproven on hardware.
+* Automatic features such as place detection and background sleep import need more time on real hardware.
 * iOS can delay or miss location events. Needs Always location and Background App Refresh. Times are estimates, not proof of hours worked.
-* The phone cannot detect sleep. It needs an Apple Watch or another app writing to Health, or you log it by hand.
+* A phone alone cannot measure sleep. Without a watch, the estimate from step gaps only works if you carry the phone by day. Treat it as a guess.
 * Vehicle filtering for steps relies on iOS motion classification. Some rides may still count.
 * Notifications are scheduled ahead and cannot show live numbers.
 * Allergy checks match names only. Always read the label.

@@ -1,5 +1,6 @@
 """Optional RE:SET proxy. Holds the provider key, checks a shared token, validates input, rate limits, forwards.
 Request bodies are never logged. Run behind HTTPS (a reverse proxy or a platform that terminates TLS)."""
+import asyncio
 import os
 import secrets
 import time
@@ -60,6 +61,15 @@ class RateLimiter:
         return True
 
 
+def _provider_message(r: httpx.Response) -> str:
+    try:
+        err = r.json().get("error")
+        msg = err.get("message") if isinstance(err, dict) else err
+        return str(msg)[:200] if msg else ""
+    except (ValueError, AttributeError):
+        return ""
+
+
 def create_app(settings: Settings | None = None, upstream: httpx.AsyncClient | None = None) -> FastAPI:
     if settings is None:
         env.load()
@@ -106,19 +116,31 @@ def create_app(settings: Settings | None = None, upstream: httpx.AsyncClient | N
         else:
             url, body = f"{cfg.openai_base}/chat/completions", to_openai(req, cfg.model)
             headers = {"Authorization": f"Bearer {cfg.api_key}", "content-type": "application/json"}
-        try:
-            r = await client.post(url, json=body, headers=headers)
-        except httpx.TimeoutException:
-            raise HTTPException(504, "The AI provider timed out.")
-        except httpx.HTTPError:
-            raise HTTPException(502, "Could not reach the AI provider.")
+        r = None
+        for attempt in range(3):
+            try:
+                r = await client.post(url, json=body, headers=headers)
+            except httpx.TimeoutException:
+                if attempt == 2:
+                    raise HTTPException(504, "The AI provider timed out.")
+            except httpx.HTTPError:
+                if attempt == 2:
+                    raise HTTPException(502, "Could not reach the AI provider.")
+            else:
+                # Overloaded (529) and transient 5xx are worth one more try. Rate limits are passed on, not hammered.
+                if r.status_code not in (500, 502, 503, 504, 529) or attempt == 2:
+                    break
+            await asyncio.sleep(0.6 * (attempt + 1))
+        assert r is not None
         if r.status_code == 429:
             raise HTTPException(429, "The AI provider is rate limiting. Try again shortly.")
         if r.status_code in (401, 403):
             # The server's key is wrong. Do not pass the provider's message to the phone.
             raise HTTPException(502, "The server's AI credentials were rejected.")
         if r.status_code >= 400:
-            raise HTTPException(502, f"The AI provider returned an error ({r.status_code}).")
+            # 4xx here means the request itself was refused (bad model, image too large). The provider's message
+            # describes our request, not secrets, so it helps. It is trimmed and never includes the key.
+            raise HTTPException(502, f"The AI provider returned an error ({r.status_code}). {_provider_message(r)}".strip())
         try:
             data = r.json()
             return from_anthropic(data) if cfg.provider == "anthropic" else from_openai(data)
