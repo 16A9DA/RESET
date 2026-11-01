@@ -33,6 +33,8 @@ public struct DaySummary: Codable, Equatable, Sendable {
     public var recoveryScore: Int? = nil
     public var recoveryComponents: [RecoveryComponent] = []
     public var recoveryAdvice = ""
+    /// The user said they cannot walk today, so nothing should keep asking.
+    public var walkSkipped = false
 
     public var calorieBalance: Double? { Energy.balance(consumedKcal: kcalConsumed, maintenanceKcal: kcalMaintenance) }
     public var kcalRemaining: Double? { kcalTarget.map { $0 - kcalConsumed } }
@@ -56,29 +58,40 @@ public struct DaySummary: Codable, Equatable, Sendable {
 
 public enum Priority {
     /// One sentence for the top of Today. Deterministic and rule ordered: safety, recovery, then habits.
+    /// Every line is chosen for the hour, so nothing suggests a workout at 11 pm or a bedtime at 9 am.
     public static func message(_ s: DaySummary, symptoms: Bool, hour: Int) -> String {
         if symptoms { return "Rest and look after yourself. Skip hard training and get checked if symptoms continue." }
+        let night = hour >= 21 || hour < 5
+        let evening = (17..<21).contains(hour)
         let longWork = (s.workSeconds ?? 0) >= 9 * 3600
         let shortSleep = (s.sleepHours.map { $0 < s.sleepTargetHours - 1.5 }) ?? false
         switch s.recoveryBand {
         case .low:
-            if longWork { return "Recover from a demanding workday and get enough sleep." }
-            if shortSleep { return "An easy day and an earlier night to make up for short sleep." }
+            if night { return "Wind down now. Sleep is what your body needs most." }
+            if longWork && hour >= 17 { return "Recover from a demanding workday and get enough sleep." }
+            if shortSleep { return evening ? "Keep tonight easy and go to bed early to make up for short sleep."
+                                           : "An easy day and an earlier night to make up for short sleep." }
             return "Take it easy and let your body recover."
         case .unknown:
-            return "Log last night's sleep and a quick check-in so I can tailor the day."
+            if night { return "Do a quick check-in, then wind down." }
+            if hour < 12 { return "Log last night's sleep and a quick check-in so I can tailor the day." }
+            return "Do a quick check-in so I can tailor the rest of your day."
         default: break
         }
-        if let goal = s.waterGoalMl, hour >= 15, s.waterMl < goal * 0.4 {
+        if night { return "Wind down. Lights low, screens away, and get to bed on time." }
+        if let goal = s.waterGoalMl, (15..<21).contains(hour), s.waterMl < goal * 0.4 {
             return "Catch up on water over the next few hours."
         }
-        if hour >= 17, s.proteinTargetG > 0, s.proteinG < s.proteinTargetG * 0.5, s.mealsLogged > 0 {
+        if hour >= 12, s.mealsLogged == 0 { return "No food logged yet today. Log what you have eaten." }
+        if evening, s.proteinTargetG > 0, s.proteinG < s.proteinTargetG * 0.5, s.mealsLogged > 0 {
             return "Get a solid protein source into your evening meal."
         }
-        if s.recoveryBand == .good && s.workouts.isEmpty && s.structuredActivityMinutes < 20 {
-            return "Fit in your planned workout or a good walk."
+        if s.recoveryBand == .good && s.workouts.isEmpty && s.structuredActivityMinutes < 20 && hour < 19 && !s.walkSkipped {
+            return hour < 12 ? "Plan your workout or a good walk for later today." : "Fit in your planned workout or a good walk."
         }
-        return "Keep the basics steady. Water, regular meals and an on-time bedtime."
+        if hour < 12 { return "Keep the basics steady. Water and a proper breakfast." }
+        if evening { return "Keep the basics steady. A balanced dinner and an on-time bedtime." }
+        return "Keep the basics steady. Water, regular meals and a short walk."
     }
 }
 

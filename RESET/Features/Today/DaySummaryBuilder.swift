@@ -42,6 +42,7 @@ enum DaySummaryBuilder {
         summary.recoveryScore = r.score; summary.recoveryComponents = r.components; summary.recoveryAdvice = r.advice
         summary.carbsG = nut.total.carbsG; summary.carbsTargetG = plan?.carbsG ?? 0
         summary.fatG = nut.total.fatG; summary.fatTargetG = plan?.fatG ?? 0
+        summary.walkSkipped = UserDefaults.standard.double(forKey: "walk.skipDay") == cal.startOfDay(for: day).timeIntervalSince1970
         return summary
     }
 
