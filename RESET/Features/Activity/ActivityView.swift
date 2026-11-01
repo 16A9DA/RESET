@@ -6,12 +6,6 @@ import ResetCore
 struct ActivityView: View {
     @Environment(\.modelContext) private var context
     @Environment(HealthService.self) private var health
-    @Query(sort: \ActivityRecord.start, order: .reverse) private var records: [ActivityRecord]
-    @State private var recording = false
-
-    private var spans: [ActivitySpan] {
-        records.map { ActivitySpan(id: $0.id, kind: $0.kind, start: $0.start, end: $0.end, source: $0.source, steps: $0.steps) }
-    }
 
     var body: some View {
         NavigationStack {
@@ -21,29 +15,20 @@ struct ActivityView: View {
                     stepsCard
                     WalkCard()
                     ListGroup {
-                        NavigationLink { ScrollView { WorkoutCard().padding() }.background(GlassBackdrop()).navigationTitle("Workout") } label: {
-                            GroupRow(title: "Workout", icon: "dumbbell", tint: Theme.accent)
-                        }.buttonStyle(Press())
-                        GroupDivider()
                         NavigationLink { SleepView() } label: { GroupRow(title: "Sleep", icon: "moon.fill", tint: Theme.sleep) }.buttonStyle(Press())
                         GroupDivider()
                         NavigationLink { TimeTrackingView() } label: { GroupRow(title: "Work and university", icon: "briefcase", tint: Theme.carbs) }.buttonStyle(Press())
                     }
-                    history
                 }
                 .padding()
             }
             .background(GlassBackdrop())
             .navigationTitle("Activity")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button { recording = true } label: { Image(systemName: "plus") }.accessibilityLabel("Record a workout") }
-            }
             .task {
                 await health.refresh()
                 await health.importWorkouts(since: Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .now, context: context)
             }
             .refreshable { await health.refresh() }
-            .sheet(isPresented: $recording) { WorkoutSheet() }
         }
     }
 
@@ -76,32 +61,16 @@ struct ActivityView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
     }
-
-    @ViewBuilder private var history: some View {
-        let recent = ActivityMath.dedupe(spans).sorted { $0.start > $1.start }.prefix(5)
-        if !recent.isEmpty {
-            Card(title: "Recent") {
-                ForEach(Array(recent), id: \.id) { s in
-                    if let r = records.first(where: { $0.id == s.id }) {
-                        HStack {
-                            Text(r.kind.rawValue.capitalized).font(.headline)
-                            Spacer()
-                            Text("\(r.start.formatted(.dateTime.weekday(.abbreviated).hour().minute())), \(Int(r.minutes)) min")
-                                .font(.footnote).foregroundStyle(Theme.secondaryText)
-                        }
-                        .contextMenu { Button("Delete", role: .destructive) { context.delete(r); try? context.save() } }
-                    }
-                }
-            }
-        }
-    }
 }
 
 struct WalkCard: View {
     @Environment(\.modelContext) private var context
     @Environment(HealthService.self) private var health
     @AppStorage("walk.start") private var startTS: Double = 0
+    @AppStorage("walk.skipDay") private var skipDay: Double = 0
     @State private var saving = false
+
+    private var skipped: Bool { skipDay == Calendar.current.startOfDay(for: .now).timeIntervalSince1970 }
 
     var body: some View {
         Card {
@@ -112,9 +81,22 @@ struct WalkCard: View {
                 Button(saving ? "Saving" : "Finish walk") { Task { await finish() } }
                     .buttonStyle(.borderedProminent).tint(Theme.low).disabled(saving)
                 Button("Discard", role: .destructive) { startTS = 0 }.font(.footnote)
+            } else if skipped {
+                Text("No walk today. That is fine.").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                Button("Undo") { skipDay = 0 }.font(.footnote.weight(.semibold))
             } else {
-                Button("Start walk") { startTS = Date.now.timeIntervalSince1970 }
-                    .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
+                HStack(spacing: 10) {
+                    Button { startTS = Date.now.timeIntervalSince1970 } label: {
+                        Label("Start walk", systemImage: "figure.walk").font(.headline).frame(maxWidth: .infinity, minHeight: 46)
+                    }
+                    .buttonStyle(Press())
+                    .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
+                    Button { skipDay = Calendar.current.startOfDay(for: .now).timeIntervalSince1970 } label: {
+                        Text("Can't today").font(.headline).padding(.horizontal, 16).frame(minHeight: 46)
+                    }
+                    .buttonStyle(Press())
+                    .background(Theme.raised, in: Capsule())
+                }
             }
         }
     }
@@ -135,38 +117,5 @@ struct WalkCard: View {
         startTS = 0
         saving = false
         await health.refresh()
-    }
-}
-
-struct WorkoutSheet: View {
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-    @State private var kind: ActivityKind = .strength
-    @State private var minutes = 45
-    @State private var start = Date.now.addingTimeInterval(-45 * 60)
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Picker("Type", selection: $kind) {
-                    ForEach(ActivityKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
-                }
-                DatePicker("Started", selection: $start)
-                Stepper("Duration: \(minutes) min", value: $minutes, in: 5...240, step: 5)
-            }
-            .navigationTitle("Record workout")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        context.insert(ActivityRecord(kind: kind, start: start, end: start.addingTimeInterval(Double(minutes) * 60), source: .manual))
-                        context.insert(WorkoutRecord(title: kind.rawValue.capitalized, start: start, minutes: minutes, completed: true))
-                        try? context.save()
-                        dismiss()
-                    }
-                }
-            }
-        }
     }
 }
