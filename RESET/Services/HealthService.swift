@@ -22,6 +22,8 @@ final class HealthService {
     private static let bucket: TimeInterval = 300
     /// No person walks or runs faster than this, so a bucket above it is vehicle vibration.
     private static let maxStepsPerSecond = 4.0
+    /// A bucket below this with no walking next to it is not counted.
+    private static let trickleSteps = 20.0
     static let yesterdayStepsKey = "health.yesterdaySteps"
     private let requestedKey = "health.authRequested"
 
@@ -134,7 +136,13 @@ final class HealthService {
             if id == .stepCount, v > Self.maxStepsPerSecond * Self.bucket { return }
             out.append((stats.startDate, v))
         }
-        return out
+        guard id == .stepCount else { return out }
+        // Walking comes in runs. A few steps alone in a 5 minute bucket are the phone being moved, for example
+        // while lying down, and over an hour they add up to a number that never happened.
+        let solid = out.filter { $0.1 >= Self.trickleSteps }.map(\.0)
+        return out.filter { bucket in
+            bucket.1 >= Self.trickleSteps || solid.contains { abs($0.timeIntervalSince(bucket.0)) <= Self.bucket * 1.5 }
+        }
     }
 
     private func weekSteps(from start: Date, vehicle: [TimeSpan]) async -> [DaySteps] {
@@ -146,14 +154,15 @@ final class HealthService {
         }
     }
 
-    /// Spans CoreMotion classed as driving or cycling. A scooter or bus shows up as one of these.
+    /// Spans CoreMotion classed as driving, cycling or lying still. A scooter or bus shows up as one of the first two.
+    /// Steps the pedometer reports while the phone is certain it is stationary are sensor drift, not walking.
     private func vehicleSpans(from: Date, to: Date) async -> [TimeSpan] {
         guard CMMotionActivityManager.isActivityAvailable(), CMMotionActivityManager.authorizationStatus() != .denied else { return [] }
         return await withCheckedContinuation { cont in
             activity.queryActivityStarting(from: from, to: to, to: .main) { list, _ in
                 let list = list ?? []
                 var spans: [TimeSpan] = []
-                for (i, a) in list.enumerated() where (a.automotive || a.cycling) && a.confidence != .low {
+                for (i, a) in list.enumerated() where (a.automotive || a.cycling || (a.stationary && a.confidence == .high)) && a.confidence != .low {
                     spans.append(TimeSpan(start: a.startDate, end: i + 1 < list.count ? list[i + 1].startDate : to))
                 }
                 cont.resume(returning: spans)
