@@ -25,11 +25,11 @@ struct InsightsView: View {
         let _ = (sleeps.count, checks.count, meals.count, caffeine.count, acts.count, sessions.count, waters.count)
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(spacing: Theme.gap) {
                     header
                     weekCards
                     weightRow
-                }.padding(.horizontal).padding(.top, 8).padding(.bottom, 12)
+                }.padding(.horizontal, Theme.screenInset).padding(.bottom, 12)
             }
             .background(GlassBackdrop())
             .toolbar(.hidden, for: .navigationBar)
@@ -54,7 +54,7 @@ struct InsightsView: View {
             return "\(a.formatted(.dateTime.day()))\u{2013}\(b.formatted(.dateTime.day().month(.wide))) \u{b7} This week"
         }()
         return PageHeader(title: "Insights", subtitle: sub) {
-            Image(systemName: "calendar").font(.title2).foregroundStyle(Theme.secondaryText).accessibilityHidden(true)
+            Icon("calendar-days", size: 22).foregroundStyle(Theme.text).accessibilityHidden(true)
         }
     }
 
@@ -72,52 +72,62 @@ struct InsightsView: View {
         let known = kcal.filter { $0 > 0 }
         let steady = (known.max() ?? 0) - (known.min() ?? 0) < (kcalAvg ?? 0) * 0.35
         func k(_ v: Double) -> String { v >= 1000 ? (v / 1000).formatted(.number.precision(.fractionLength(0...1))) + "k" : "\(Int(v))" }
-        return VStack(spacing: 12) {
+        let sleepTop = max(sleepTarget, sleep.max() ?? 0), stepsTop = max(8000, steps.max() ?? 0)
+        let waterTop = max(waterGoal, water.max() ?? 0), kcalTop = max(kcalGoal, kcal.max() ?? 0)
+        return VStack(spacing: Theme.gap) {
             insightCard("Sleep", sleepAvg.map { $0.formatted(.number.precision(.fractionLength(1))) }, "h avg",
                         sleepAvg.map { $0 < sleepTarget - 1 ? "Sleep ran short this week. An earlier bedtime would help." : "A consistent bedtime could make mornings easier." }
                             ?? "No nights recorded this week.",
-                        Theme.sleep, sleep, top: max(sleepTarget, sleep.max() ?? 0), topLabel: "\(Int(max(sleepTarget, sleep.max() ?? 0).rounded())) h", zeroLabel: "0 h")
+                        Theme.sleep, sleep, top: sleepTop, topLabel: "\(Int(sleepTop.rounded())) h", zeroLabel: "0 h")
             insightCard("Steps", stepsAvg.map { Int($0).formatted() }, "steps avg",
                         (stepsAvg ?? 0) >= 8000 ? "You are reaching your steps. Keep them gentle." : "Your workday walks add up. Keep them gentle.",
-                        Theme.steps, steps, top: max(8000, steps.max() ?? 0), topLabel: k(max(8000, steps.max() ?? 0)), zeroLabel: "0")
+                        Theme.steps, steps, top: stepsTop, topLabel: k(stepsTop), zeroLabel: "0")
             insightCard("Water", waterAvg.map { $0.formatted(.number.precision(.fractionLength(1))) }, "L avg",
                         (waterAvg ?? 0) < waterGoal * 0.7 ? "Keep a glass nearby for your next work break." : "Water is on track. Keep it up.",
-                        Theme.water, water, top: max(waterGoal, water.max() ?? 0), topLabel: "\(Int(max(waterGoal, water.max() ?? 0).rounded())) L", zeroLabel: "0 L")
+                        Theme.water, water, top: waterTop, topLabel: "\(Int(waterTop.rounded())) L", zeroLabel: "0 L")
             insightCard("Energy", kcalAvg.map { Int($0).formatted() }, "kcal avg",
                         kcalAvg == nil ? "No meals logged this week." : (steady ? "Your intake is fairly steady across the week." : "Intake varied this week. Regular meals help."),
-                        Theme.food, kcal, top: max(kcalGoal, kcal.max() ?? 0), topLabel: k(max(kcalGoal, kcal.max() ?? 0)), zeroLabel: "0")
-            Text("Daily totals \u{b7} Last bar is today \u{b7} Trends, not grades").font(.footnote).foregroundStyle(Theme.secondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 2)
+                        Theme.food, kcal, top: kcalTop, topLabel: k(kcalTop), zeroLabel: "0")
+            Text("Daily totals \u{b7} Last bar is today \u{b7} Trends, not grades").font(Theme.text(Theme.Size.tab)).foregroundStyle(Theme.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
+    /// 12 padded card: name and weekly average, one sentence, then a 58 high chart with a two value scale on the left.
     private func insightCard(_ title: String, _ value: String?, _ unit: String, _ caption: String, _ tint: Color, _ values: [Double],
                              top: Double, topLabel: String, zeroLabel: String) -> some View {
-        let today = week.last
-        return VStack(alignment: .leading, spacing: 8) {
+        let todayDate = week.last
+        let area: CGFloat = 43
+        return VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title).font(.headline)
+                Text(title).font(Theme.text(Theme.Size.tileTitle, .semibold)).foregroundStyle(Theme.text)
                 Spacer()
-                Text(value ?? "None").font(.system(size: 30, weight: .bold)).tracking(-0.6).monospacedDigit()
-                if value != nil { Text(unit).font(.subheadline).foregroundStyle(Theme.secondaryText) }
-            }
-            Text(caption).font(.subheadline).foregroundStyle(Theme.secondaryText)
-            Chart(Array(zip(week, values)), id: \.0) { d, v in
-                BarMark(x: .value("Day", d, unit: .day), y: .value(title, v), width: .fixed(16))
-                    .foregroundStyle(d == today ? tint : tint.opacity(0.5)).clipShape(Capsule())
-            }
-            .chartYScale(domain: 0...max(top, 0.001))
-            .chartYAxis {
-                AxisMarks(position: .leading, values: [0.0, top]) { value in
-                    AxisValueLabel {
-                        Text((value.as(Double.self) ?? 0) == 0 ? zeroLabel : topLabel).font(.caption).foregroundStyle(Theme.secondaryText)
-                    }
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(value ?? "None").font(Theme.number(21)).tracking(-0.8).foregroundStyle(Theme.text)
+                    if value != nil { Text(unit).font(Theme.text(Theme.Size.tab)).foregroundStyle(Theme.secondaryText) }
                 }
             }
-            .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption).foregroundStyle(Theme.secondaryText) } }
-            .frame(height: 96)
+            Text(caption).font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText).frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .top, spacing: 8) {
+                VStack {
+                    Text(topLabel); Spacer(minLength: 0); Text(zeroLabel)
+                }
+                .font(Theme.text(9)).foregroundStyle(Theme.secondaryText).frame(width: 28, height: 57, alignment: .leading)
+                HStack(alignment: .bottom) {
+                    ForEach(Array(zip(week, values)), id: \.0) { d, v in
+                        let isToday = d == todayDate
+                        VStack(spacing: 4) {
+                            Capsule().fill(tint).opacity(isToday ? 1 : 0.52).frame(width: 12, height: max(6, v / max(top, 0.001) * area))
+                            Text(d.formatted(.dateTime.weekday(.narrow))).font(Theme.text(9)).foregroundStyle(Theme.secondaryText)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: 58, alignment: .bottom)
+            }
+            .frame(height: 58)
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading).glass(Theme.cardRadius)
     }
 
     /// Weight stays available but takes one slim row. The full log and trend open in a sheet.
