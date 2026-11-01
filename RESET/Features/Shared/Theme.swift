@@ -53,14 +53,16 @@ enum Theme {
     static func text(_ size: CGFloat, _ face: Face = .regular, relativeTo style: Font.TextStyle = .body) -> Font {
         .custom(face.name, size: size, relativeTo: style)
     }
-    static func number(_ size: CGFloat, relativeTo style: Font.TextStyle = .title) -> Font {
-        .custom("NunitoSans-Bold", size: size, relativeTo: style)
+    static func number(_ size: CGFloat, semibold: Bool = false, relativeTo style: Font.TextStyle = .title) -> Font {
+        .custom(semibold ? "NunitoSans-SemiBold" : "NunitoSans-Bold", size: size, relativeTo: style)
     }
 
     /// Type scale in points, from the frames.
     enum Size {
         static let headline: CGFloat = 23
         static let bigNumber: CGFloat = 42
+        static let stepNumber: CGFloat = 40
+        static let timer: CGFloat = 44
         static let tileNumber: CGFloat = 29
         static let workNumber: CGFloat = 27
         static let cardTitle: CGFloat = 15
@@ -346,7 +348,7 @@ struct ListGroup<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) { content }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glass(20)
+            .glass(Theme.cardRadius)
     }
 }
 
@@ -374,22 +376,22 @@ struct GroupDivider: View {
     var body: some View { Rectangle().fill(Theme.hairline).frame(height: 1).padding(.leading, 52) }
 }
 
-/// Screen title row shared by Activity, Nutrition and Insights: calendar icon, big title, small subtitle, optional trailing control.
+/// Screen title row from the Figma "Page navigation": calendar icon, 20pt title, 11pt date, optional trailing control. 56 high.
 struct PageHeader<Trailing: View>: View {
     var title: String
     var subtitle: String
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "calendar").font(.title2).foregroundStyle(Theme.secondaryText).accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.system(size: 28, weight: .bold)).tracking(-0.5)
-                Text(subtitle).font(.subheadline).foregroundStyle(Theme.secondaryText)
+        HStack(spacing: 12) {
+            Icon("calendar-days", size: 22).foregroundStyle(Theme.text).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(Theme.text(20, .bold, relativeTo: .title3)).foregroundStyle(Theme.text)
+                Text(subtitle).font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
             }
             Spacer()
             trailing
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
     }
 }
