@@ -38,6 +38,11 @@ struct RESETApp: App {
                     CalendarSync.sync(context: container.mainContext)
                     await notifier.rebuild(context: container.mainContext)
                 }
+                .task {
+                    for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
+                        DataExporter.syncSoon(context: container.mainContext)
+                    }
+                }
                 .onChange(of: phase) { _, new in
                     if new == .background { Self.scheduleRefresh(); DataExporter.syncToFiles(context: container.mainContext) }
                     if new == .active {

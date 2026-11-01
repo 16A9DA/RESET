@@ -86,7 +86,23 @@ enum DataExporter {
     }
 
     @MainActor
-    static func syncToFiles(context: ModelContext) { _ = try? write(context: context, to: filesFolder) }
+    static func syncToFiles(context: ModelContext) {
+        // No profile means the user just deleted everything. Do not recreate empty exports.
+        guard ((try? context.fetchCount(FetchDescriptor<UserProfile>())) ?? 0) > 0 else { return }
+        _ = try? write(context: context, to: filesFolder)
+    }
+
+    @MainActor private static var pending: Task<Void, Never>?
+
+    /// Rewrites the Files copy two seconds after the last save, so deleted or edited data leaves the CSVs right away.
+    @MainActor
+    static func syncSoon(context: ModelContext) {
+        pending?.cancel()
+        pending = Task {
+            try? await Task.sleep(for: .seconds(2))
+            if !Task.isCancelled { syncToFiles(context: context) }
+        }
+    }
 
     /// Returns file URLs ready for ShareLink. Old exports are removed first.
     @MainActor
