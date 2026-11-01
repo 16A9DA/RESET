@@ -5,6 +5,9 @@ import ResetCore
 struct SettingsView: View {
     @Query private var profiles: [UserProfile]
     @AppStorage("appearance") private var appearance = "dark"
+    @AppStorage(CalendarSync.enabledKey) private var calendarOn = false
+    @State private var calendarDenied = false
+    @Environment(\.modelContext) private var context
 
     var body: some View {
         if let p = profiles.first {
@@ -22,6 +25,20 @@ struct SettingsView: View {
                     NavigationLink("Food and caffeine habits") { Form { HabitsSection(profile: p) }.navigationTitle("Habits") }
                 } header: { Text("Profile") } footer: {
                     Text("Every answer from setup can be changed here. Leaving details blank keeps features working with clearly labeled general estimates.")
+                }
+                Section {
+                    Toggle("Add sessions to Calendar", isOn: Binding(get: { calendarOn }, set: { on in
+                        if on {
+                            Task {
+                                calendarOn = await CalendarSync.enable()
+                                calendarDenied = !calendarOn
+                                CalendarSync.sync(context: context)
+                            }
+                        } else { calendarOn = false }
+                    }))
+                } footer: {
+                    Text(calendarDenied ? "Calendar access is off. Allow it in iOS Settings, then try again."
+                         : "When a work, university or gym session ends, its start and end time is added to your calendar. The app can only add events. It never reads your calendar.")
                 }
                 Section("Appearance") {
                     Picker("Theme", selection: $appearance) {

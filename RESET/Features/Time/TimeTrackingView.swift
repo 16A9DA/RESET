@@ -138,6 +138,7 @@ struct TimerRow: View {
                     context.insert(TrackedSession(category: category, start: .now, status: .confirmed, source: .manual))
                 }
                 try? context.save()
+                CalendarSync.sync(context: context)
             }
             .buttonStyle(.borderedProminent).tint(running == nil ? Theme.accent : Theme.low).foregroundStyle(.black)
         }
@@ -203,6 +204,7 @@ struct SessionEditor: View {
         s.status = .confirmed
         if session == nil { context.insert(s) }
         try? context.save()
+        CalendarSync.sync(context: context)
         dismiss()
     }
 }

@@ -134,6 +134,8 @@ final class TrackedSession {
     var source: Source
     var breaks: [BreakInterval]
     var note: String
+    /// Set once the finished session was added to the calendar.
+    var calendarEventID: String?
 
     init(category: SessionCategory, placeID: UUID? = nil, start: Date, end: Date? = nil,
          status: SessionStatus = .estimatedPresence, source: Source = .auto) {

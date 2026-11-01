@@ -283,6 +283,7 @@
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave places you saved, such as work, university or the gym, so your time is recorded automatically. Your route is not recorded and coordinates never leave your iPhone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RE:SET uses your location to save places such as work, university or the gym, and to show them on a map.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "RE:SET reads step counts from your iPhone when Apple Health access is not granted.";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "RE:SET adds the start and end time of your finished work, university and gym sessions to your calendar. It never reads your calendar.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a meal photo to estimate its nutrition. Photos are analyzed only if you turn on AI.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -319,6 +320,7 @@
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Background location lets RE:SET notice when you arrive at or leave places you saved, such as work, university or the gym, so your time is recorded automatically. Your route is not recorded and coordinates never leave your iPhone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "RE:SET uses your location to save places such as work, university or the gym, and to show them on a map.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "RE:SET reads step counts from your iPhone when Apple Health access is not granted.";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "RE:SET adds the start and end time of your finished work, university and gym sessions to your calendar. It never reads your calendar.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a meal photo to estimate its nutrition. Photos are analyzed only if you turn on AI.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
