@@ -7,22 +7,23 @@ struct SettingsView: View {
     @AppStorage("appearance") private var appearance = "dark"
     @AppStorage(CalendarSync.enabledKey) private var calendarOn = false
     @State private var calendarDenied = false
+    @State private var pastAdded: Int?
     @Environment(\.modelContext) private var context
 
     var body: some View {
         if let p = profiles.first {
             Form {
                 Section {
-                    NavigationLink("Places and location") { PlacesView() }
-                    NavigationLink("Reminders") { RemindersSettingsView() }
-                    NavigationLink("AI and data sources") { AISettingsView(profile: p) }
-                    NavigationLink("Calories, protein and water") { TargetsSettingsView(profile: p) }
+                    LabeledRow("Places and location", "mappin.and.ellipse") { PlacesView() }
+                    LabeledRow("Reminders", "bell") { RemindersSettingsView() }
+                    LabeledRow("AI and data sources", "sparkles") { AISettingsView(profile: p) }
+                    LabeledRow("Calories, protein and water", "flame") { TargetsSettingsView(profile: p) }
                 } header: { Text("Setup") }
                 Section {
-                    NavigationLink("About you") { Form { BodySection(profile: p) }.navigationTitle("About you") }
-                    NavigationLink("Goal and training") { Form { GoalSection(profile: p) }.navigationTitle("Goal and training") }
-                    NavigationLink("Schedule") { Form { ScheduleSection(profile: p) }.navigationTitle("Schedule") }
-                    NavigationLink("Food and caffeine habits") { Form { HabitsSection(profile: p) }.navigationTitle("Habits") }
+                    LabeledRow("About you", "person") { Form { BodySection(profile: p) }.navigationTitle("About you") }
+                    LabeledRow("Goal and training", "target") { Form { GoalSection(profile: p) }.navigationTitle("Goal and training") }
+                    LabeledRow("Schedule", "calendar") { Form { ScheduleSection(profile: p) }.navigationTitle("Schedule") }
+                    LabeledRow("Food and caffeine habits", "cup.and.saucer") { Form { HabitsSection(profile: p) }.navigationTitle("Habits") }
                 } header: { Text("Profile") } footer: {
                     Text("Every answer from setup can be changed here. Leaving details blank keeps features working with clearly labeled general estimates.")
                 }
@@ -36,6 +37,13 @@ struct SettingsView: View {
                             }
                         } else { calendarOn = false }
                     }))
+                    if calendarOn {
+                        Button("Add past sessions now") { pastAdded = CalendarSync.sync(context: context, includePast: true) }
+                        if let n = pastAdded {
+                            Text(n == 0 ? "No past sessions left to add." : "Added \(n) past session\(n == 1 ? "" : "s") to your calendar.")
+                                .font(.footnote).foregroundStyle(Theme.secondaryText)
+                        }
+                    }
                 } footer: {
                     Text(calendarDenied ? "Calendar access is off. Allow it in iOS Settings, then try again."
                          : "When a work, university or gym session ends, its start and end time is added to your calendar. The app can only add events. It never reads your calendar.")
@@ -48,13 +56,17 @@ struct SettingsView: View {
                     }.pickerStyle(.segmented)
                 }
                 Section {
-                    NavigationLink("Privacy and data") { PrivacyView() }
-                    NavigationLink("Privacy Policy") { PrivacyPolicyView() }
-                    NavigationLink("Terms of Use") { TermsView() }
-                    NavigationLink("Consumer Health Data Policy") { ConsumerHealthDataPolicyView() }
+                    LabeledRow("Privacy and data", "lock.shield") { PrivacyView() }
+                    LabeledRow("Privacy Policy", "hand.raised") { PrivacyPolicyView() }
+                    LabeledRow("Terms of Use", "doc.text") { TermsView() }
+                    LabeledRow("Consumer Health Data Policy", "heart.text.square") { ConsumerHealthDataPolicyView() }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(GlassBackdrop())
+            .listRowBackground(Theme.card)
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
         } else {
             EmptyNote(systemImage: "person.crop.circle", title: "No profile", message: "Finish setup to edit your profile.")
         }
@@ -117,5 +129,16 @@ struct TargetsSettingsView: View {
 
     private func row(_ title: String, _ v: Double?) -> some View {
         HStack { Text(title); Spacer(); Text(v.map { "\(Int($0.rounded())) kcal" } ?? "Estimate unavailable").foregroundStyle(Theme.secondaryText) }
+    }
+}
+
+/// Settings row: leading icon, title, chevron from the link.
+struct LabeledRow<Dest: View>: View {
+    var title: String
+    var icon: String
+    @ViewBuilder var dest: Dest
+    init(_ title: String, _ icon: String, @ViewBuilder dest: () -> Dest) { self.title = title; self.icon = icon; self.dest = dest() }
+    var body: some View {
+        NavigationLink { dest } label: { Label(title, systemImage: icon).foregroundStyle(.primary) }
     }
 }

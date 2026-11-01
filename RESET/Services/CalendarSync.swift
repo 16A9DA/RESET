@@ -19,21 +19,25 @@ enum CalendarSync {
     }
 
     /// Safe to call often. A session gets an event once, then carries its event id.
-    static func sync(context: ModelContext) {
+    /// `includePast` also adds finished sessions from before sync was turned on. Returns how many were added.
+    @discardableResult
+    static func sync(context: ModelContext, includePast: Bool = false) -> Int {
         let d = UserDefaults.standard
-        guard d.bool(forKey: enabledKey), let calendar = store.defaultCalendarForNewEvents else { return }
+        guard d.bool(forKey: enabledKey), let calendar = store.defaultCalendarForNewEvents else { return 0 }
+        var added = 0
         let since = Date(timeIntervalSince1970: d.double(forKey: sinceKey))
         let sessions = (try? context.fetch(FetchDescriptor<TrackedSession>())) ?? []
         for s in sessions where s.calendarEventID == nil && s.status != .needsReview {
-            guard let end = s.end, end > since, end.timeIntervalSince(s.start) >= 300 else { continue }
+            guard let end = s.end, includePast || end > since, end.timeIntervalSince(s.start) >= 300 else { continue }
             let event = EKEvent(eventStore: store)
             event.calendar = calendar
             event.title = s.category.rawValue.capitalized
             event.startDate = s.start
             event.endDate = end
             event.notes = "Recorded by RE:SET"
-            if (try? store.save(event, span: .thisEvent)) != nil { s.calendarEventID = event.eventIdentifier }
+            if (try? store.save(event, span: .thisEvent)) != nil { s.calendarEventID = event.eventIdentifier; added += 1 }
         }
         try? context.save()
+        return added
     }
 }
