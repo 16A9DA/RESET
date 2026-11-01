@@ -23,7 +23,9 @@ struct NutritionView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    header
+                    PageHeader(title: "Nutrition", subtitle: Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))) {
+                        Button { chooser = true } label: { Icon("plus", size: 22) }.foregroundStyle(Theme.text).accessibilityLabel("Add food")
+                    }
                     eatenCard
                     if today.isEmpty {
                         EmptyNote(systemImage: "fork.knife", title: "Nothing logged yet",
@@ -31,6 +33,8 @@ struct NutritionView: View {
                     } else {
                         ForEach(MealType.allCases, id: \.self) { type in mealGroup(type) }
                     }
+                    Text("Estimates are enough. You can always adjust them.").font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     ListGroup {
                         NavigationLink { ScrollView { WaterCard().padding() }.background(GlassBackdrop()).navigationTitle("Water") } label: {
                             GroupRow(title: "Water", icon: "drop", tint: Theme.water)
@@ -51,14 +55,18 @@ struct NutritionView: View {
                         }
                     }
                 }
-                .padding(.horizontal).padding(.top, 8).padding(.bottom, 12)
+                .padding(.horizontal, Theme.screenInset).padding(.bottom, 12)
             }
             .background(GlassBackdrop())
             .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .bottom) { addBar }
+            .safeAreaInset(edge: .bottom) {
+                PillButton(title: "Add food", icon: "plus") { chooser = true }
+                    .padding(.horizontal, Theme.screenInset).padding(.top, 10).padding(.bottom, 20)
+            }
             .sheet(isPresented: $chooser, onDismiss: { if let m = pendingMethod { pendingMethod = nil; addMethod = m } }) {
                 AddFoodChooser { pendingMethod = $0; chooser = false }
-                    .presentationDetents([.height(340)]).presentationDragIndicator(.visible)
+                    .presentationDetents([.height(350)]).presentationDragIndicator(.hidden)
+                    .presentationBackground(Theme.card).presentationCornerRadius(28)
             }
             .sheet(item: $addMethod) { AddFoodView(startWith: $0) }
             .sheet(isPresented: $adding) { AddFoodView() }
@@ -67,29 +75,24 @@ struct NutritionView: View {
         }
     }
 
-    private var header: some View {
-        PageHeader(title: "Nutrition", subtitle: Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))) {
-            Button { chooser = true } label: { Image(systemName: "plus").font(.title3) }.foregroundStyle(.primary).accessibilityLabel("Add food")
-        }
-    }
-
     @ViewBuilder private var eatenCard: some View {
         let plan = profile?.energyPlan
         let t = totals.total
         if profile?.calorieCountingEnabled != false, let target = plan?.targetKcal {
-            VStack(alignment: .leading, spacing: 10) {
+            let left = target - t.kcal
+            Card(spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(Int(t.kcal.rounded()).formatted()).font(.system(size: 48, weight: .bold)).tracking(-1.2).monospacedDigit()
-                    Text("kcal eaten").font(.body).foregroundStyle(Theme.secondaryText)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(Int(t.kcal.rounded()).formatted()).font(Theme.number(32)).tracking(-0.8).foregroundStyle(Theme.text)
+                        Text("kcal eaten").font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText)
+                    }
                     Spacer()
-                    let left = target - t.kcal
                     Text(left >= 0 ? "\(Int(left.rounded())) left" : "\(Int((-left).rounded())) over")
-                        .font(.body).foregroundStyle(left >= 0 ? Theme.food : Theme.warn).monospacedDigit()
+                        .font(Theme.text(Theme.Size.tileTitle)).foregroundStyle(left >= 0 ? Theme.food : Theme.warn).monospacedDigit()
                 }
-                ProgressBar(fraction: t.kcal / target, tint: Theme.food).frame(height: 6)
-                Text("Daily guide \(Int(target.rounded()).formatted()) kcal · Not a limit").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                ProgressBar(fraction: t.kcal / target, tint: Theme.food)
+                Text("Daily guide \(Int(target.rounded()).formatted()) kcal \u{b7} Not a limit").font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
             }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
         } else {
             summary
         }
@@ -98,54 +101,36 @@ struct NutritionView: View {
     @ViewBuilder private func mealGroup(_ type: MealType) -> some View {
         let group = today.filter { $0.mealType == type }.sorted { $0.at < $1.at }
         if !group.isEmpty {
-            VStack(spacing: 8) {
+            VStack(spacing: 7) {
                 HStack {
-                    Text(type == .snack ? "Snacks" : type.title).font(.headline)
+                    Text(type == .snack ? "Snacks" : type.title).font(Theme.text(Theme.Size.tileTitle, .semibold)).foregroundStyle(Theme.text)
                     Spacer()
-                    Text("\(Int(group.reduce(0) { $0 + $1.nutrition.kcal }.rounded())) kcal").font(.subheadline).foregroundStyle(Theme.secondaryText).monospacedDigit()
+                    Text("\(Int(group.reduce(0) { $0 + $1.nutrition.kcal }.rounded())) kcal").font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText).monospacedDigit()
                 }
-                .padding(.horizontal, 2).padding(.top, 6)
-                VStack(spacing: 0) {
+                VStack(spacing: 12) {
                     ForEach(group) { m in
                         Button { editing = m } label: {
-                            VStack(spacing: 0) {
+                            VStack(spacing: 12) {
                                 ForEach(Array(m.items.enumerated()), id: \.offset) { _, item in
-                                    HStack(alignment: .top) {
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(item.name).font(.body).lineLimit(2)
-                                            Text("\(Int(item.grams)) g · \(m.at.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute()))")
-                                                .font(.footnote).foregroundStyle(Theme.secondaryText)
+                                    HStack(alignment: .top, spacing: 10) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(item.name).font(Theme.text(Theme.Size.body)).foregroundStyle(Theme.text).lineLimit(2)
+                                            Text("\(Int(item.grams)) g \u{b7} \(m.at.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute()))")
+                                                .font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
                                         }
                                         Spacer()
-                                        Text("\(Int(item.nutrition.kcal.rounded()))").font(.body).monospacedDigit()
+                                        Text("\(Int(item.nutrition.kcal.rounded()))").font(Theme.number(Theme.Size.body, semibold: true)).tracking(-0.8)
+                                            .foregroundStyle(Theme.text).monospacedDigit()
                                     }
-                                    .padding(.vertical, 10)
                                 }
                             }
-                            .contentShape(Rectangle())
+                            .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 16).padding(.vertical, 4)
-                .frame(maxWidth: .infinity).glass(22)
+                .padding(13).frame(maxWidth: .infinity).glass(Theme.cardRadius)
             }
         }
-    }
-
-    private var addBar: some View {
-        VStack(spacing: 10) {
-            if !today.isEmpty {
-                Text("Estimates are enough. You can always adjust them.").font(.subheadline).foregroundStyle(Theme.secondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            Button { chooser = true } label: {
-                Label("Add food", systemImage: "plus").font(.headline).frame(maxWidth: .infinity, minHeight: 56)
-            }
-            .buttonStyle(Press())
-            .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
-        }
-        .padding(.horizontal, 20).padding(.vertical, 12)
-        .background(Theme.background)
     }
 
     private var caffeineMg: Double { Caffeine.dailyTotal(caffeines.map(\.dose), on: .now) }
@@ -245,37 +230,37 @@ struct AddFoodChooser: View {
     var pick: (FoodMethod) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 20) {
+            Capsule().fill(Theme.secondaryText).frame(width: 36, height: 5).frame(maxWidth: .infinity)
             HStack {
-                Text("Add food").font(.system(size: 28, weight: .bold)).tracking(-0.5)
+                Text("Add food").font(Theme.text(Theme.Size.headline, .bold, relativeTo: .title2)).foregroundStyle(Theme.text)
                 Spacer()
-                Button { dismiss() } label: { Image(systemName: "xmark").font(.body.weight(.semibold)).padding(8) }
-                    .foregroundStyle(.primary).accessibilityLabel("Close")
+                Button { dismiss() } label: { Icon("x", size: 22) }.foregroundStyle(Theme.text).accessibilityLabel("Close")
             }
-            .padding(.top, 22)
-            Text("Choose whatever takes the least effort.").font(.subheadline).foregroundStyle(Theme.secondaryText).padding(.bottom, 12)
-            row("Describe it", "A few words is enough", "character.cursor.ibeam", .describe)
-            row("Photograph it", "Let AI estimate your meal", "camera", .photo)
-            row("Scan a barcode", "Quickly add packaged food", "barcode.viewfinder", .barcode)
+            Text("Choose whatever takes the least effort.").font(Theme.text(Theme.Size.body)).foregroundStyle(Theme.secondaryText)
+            VStack(spacing: 19) {
+                row("Describe it", "A few words is enough", "text-cursor-input", .describe)
+                row("Photograph it", "Let AI estimate your meal", "camera", .photo)
+                row("Scan a barcode", "Quickly add packaged food", "scan-barcode", .barcode)
+            }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, Theme.screenInset).padding(.top, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GlassBackdrop())
     }
 
     private func row(_ title: String, _ sub: String, _ icon: String, _ m: FoodMethod) -> some View {
         Button { pick(m) } label: {
-            HStack(spacing: 16) {
-                Image(systemName: icon).font(.title3).foregroundStyle(Theme.accent).frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline)
-                    Text(sub).font(.footnote).foregroundStyle(Theme.secondaryText)
+            HStack(alignment: .top, spacing: 14) {
+                Icon(icon, size: 22).foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(Theme.text(Theme.Size.cardTitle, .semibold)).foregroundStyle(Theme.text)
+                    Text(sub).font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Theme.secondaryText.opacity(0.7))
+                Icon("chevron-right", size: 17).foregroundStyle(Theme.secondaryText)
             }
-            .padding(.vertical, 10).contentShape(Rectangle())
+            .contentShape(Rectangle())
         }.buttonStyle(Press())
     }
 }
