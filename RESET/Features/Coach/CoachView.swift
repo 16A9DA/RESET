@@ -278,14 +278,7 @@ struct CoachView: View {
         let mine = m.role == "user"
         return HStack {
             if mine { Spacer(minLength: 56) }
-            VStack(alignment: .leading, spacing: 6) {
-                if !mine { Text("RE:SET AI").font(.system(size: 10, weight: .semibold)).tracking(0.5).foregroundStyle(Theme.secondaryText) }
-                Text(m.text).font(.body).lineSpacing(3).textSelection(.enabled)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            .background(mine ? Theme.accent : Theme.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay { if !mine { RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.hairline) } }
-            .foregroundStyle(mine ? Color.black : Color.primary)
+            ChatBubble(text: m.text, mine: mine)
             if !mine { Spacer(minLength: 56) }
         }
     }
