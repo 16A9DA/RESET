@@ -9,14 +9,14 @@ enum Theme {
     /// Slightly lifted surface for things that sit on a card, such as chart tracks.
     static let raised = dynamic(dark: UIColor(red: 0.141, green: 0.153, blue: 0.176, alpha: 1), light: UIColor(red: 0.925, green: 0.922, blue: 0.91, alpha: 1))
     static let hairline = dynamic(dark: UIColor(white: 1, alpha: 0.07), light: UIColor(white: 0, alpha: 0.07))
-    static let accent = Color(red: 0.80, green: 1.00, blue: 0.20)
+    static let accent = Color(red: 0.839, green: 0.996, blue: 0.369)
     static let food = Color(red: 1.00, green: 0.69, blue: 0.28)
-    static let water = Color(red: 0.36, green: 0.78, blue: 1.00)
+    static let water = Color(red: 0.47, green: 0.77, blue: 0.98)
     static let steps = accent
-    static let sleep = Color(red: 0.64, green: 0.57, blue: 1.00)
-    static let protein = Color(red: 1.00, green: 0.47, blue: 0.58)
-    static let carbs = Color(red: 0.96, green: 0.84, blue: 0.38)
-    static let fat = Color(red: 0.42, green: 0.86, blue: 0.80)
+    static let sleep = Color(red: 0.63, green: 0.57, blue: 0.97)
+    static let protein = Color(red: 0.93, green: 0.50, blue: 0.58)
+    static let carbs = Color(red: 0.94, green: 0.84, blue: 0.45)
+    static let fat = Color(red: 0.53, green: 0.85, blue: 0.80)
     static let secondaryText = Color.primary.opacity(0.62)
     static let good = Color(red: 0.35, green: 0.85, blue: 0.55)
     static let warn = Color(red: 1.0, green: 0.72, blue: 0.25)
@@ -246,42 +246,45 @@ struct FoodSummary: View {
     var fat: (eaten: Double, goal: Double)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
-                Label("Food", systemImage: "fork.knife").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.food)
+                Label("Food", systemImage: "fork.knife").font(.headline).labelStyle(TintedIcon(tint: Theme.food))
                 Spacer()
                 if counting, let t = target {
-                    let left = t - kcal
-                    Text(left >= 0 ? "\(Int(left.rounded())) left" : "\(Int((-left).rounded())) over")
-                        .font(.footnote).foregroundStyle(left >= 0 ? Theme.secondaryText : Theme.warn).monospacedDigit()
+                    Text("\(Int(kcal.rounded()).formatted()) of \(Int(t.rounded()).formatted()) kcal")
+                        .font(.footnote).foregroundStyle(Theme.secondaryText).monospacedDigit()
                 }
             }
             if counting {
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text("\(Int(kcal.rounded()))").font(.system(size: 40, weight: .bold, design: .rounded)).tracking(-1).monospacedDigit()
-                    Text(target.map { "/ \(Int($0.rounded())) kcal" } ?? "kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let t = target {
+                        let left = t - kcal
+                        Text("\(Int(abs(left).rounded()))").font(.system(size: 56, weight: .bold)).tracking(-1.5).monospacedDigit()
+                            .foregroundStyle(left >= 0 ? Color.primary : Theme.warn)
+                        Text(left >= 0 ? "kcal left" : "kcal over").font(.body).foregroundStyle(Theme.secondaryText)
+                    } else {
+                        Text("\(Int(kcal.rounded()))").font(.system(size: 44, weight: .bold, design: .rounded)).tracking(-1).monospacedDigit()
+                        Text("kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                    }
                 }
-                if let t = target { ProgressBar(fraction: kcal / t, tint: Theme.food).frame(height: 6) }
             } else {
                 Text("\(Int(protein.eaten.rounded())) g protein").font(.system(size: 32, weight: .bold, design: .rounded)).monospacedDigit()
             }
             HStack(spacing: 14) {
-                macro("P", protein, Theme.protein)
-                macro("C", carbs, Theme.carbs)
-                macro("F", fat, Theme.fat)
+                macro("Protein", protein, Theme.protein)
+                macro("Carbs", carbs, Theme.carbs)
+                macro("Fat", fat, Theme.fat)
             }
         }
         .accessibilityElement(children: .combine)
     }
 
     private func macro(_ name: String, _ m: (eaten: Double, goal: Double), _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                Text(name).font(.caption2.weight(.bold)).foregroundStyle(tint)
-                Text(m.goal > 0 ? "\(Int(m.eaten.rounded())) / \(Int(m.goal.rounded()))" : "\(Int(m.eaten.rounded()))")
-                    .font(.caption).foregroundStyle(Theme.secondaryText).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
-            }
-            if m.goal > 0 { ProgressBar(fraction: m.eaten / m.goal, tint: tint).frame(height: 3) }
+        VStack(alignment: .leading, spacing: 5) {
+            Text(name).font(.subheadline).foregroundStyle(Theme.secondaryText)
+            Text(m.goal > 0 ? "\(Int(m.eaten.rounded())) / \(Int(m.goal.rounded())) g" : "\(Int(m.eaten.rounded())) g")
+                .font(.subheadline.weight(.semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+            ProgressBar(fraction: m.goal > 0 ? m.eaten / m.goal : 0, tint: tint).frame(height: 5).opacity(m.goal > 0 ? 1 : 0.3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -303,13 +306,14 @@ struct GroupRow: View {
     var icon: String
     var value: String?
     var tint: Color = Theme.secondaryText
+    var showChevron = true
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.body.weight(.medium)).foregroundStyle(tint).frame(width: 24)
             Text(title).font(.body)
             Spacer()
             if let value { Text(value).font(.subheadline).foregroundStyle(Theme.secondaryText).monospacedDigit() }
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Theme.secondaryText.opacity(0.6))
+            if showChevron { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Theme.secondaryText.opacity(0.6)) }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .contentShape(Rectangle())
@@ -318,4 +322,24 @@ struct GroupRow: View {
 
 struct GroupDivider: View {
     var body: some View { Rectangle().fill(Theme.hairline).frame(height: 1).padding(.leading, 52) }
+}
+
+/// Screen title row shared by Activity, Nutrition and Insights: calendar icon, big title, small subtitle, optional trailing control.
+struct PageHeader<Trailing: View>: View {
+    var title: String
+    var subtitle: String
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "calendar").font(.title2).foregroundStyle(Theme.secondaryText).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 28, weight: .bold)).tracking(-0.5)
+                Text(subtitle).font(.subheadline).foregroundStyle(Theme.secondaryText)
+            }
+            Spacer()
+            trailing
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
+    }
 }

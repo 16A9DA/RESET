@@ -25,11 +25,13 @@ struct RootView: View {
     private var tabs: some View {
         @Bindable var router = router
         return TabView(selection: $router.tab) {
-            TodayView().tag(AppTab.today).tabItem { Label("Today", systemImage: "sun.max") }
+            TodayView().tag(AppTab.today).tabItem { Label("Today", systemImage: "house") }
             ActivityView().tag(AppTab.activity).tabItem { Label("Activity", systemImage: "figure.walk") }
             NutritionView().tag(AppTab.nutrition).tabItem { Label("Nutrition", systemImage: "fork.knife") }
-            InsightsView().tag(AppTab.insights).tabItem { Label("Insights", systemImage: "chart.line.uptrend.xyaxis") }
-            CoachView().tag(AppTab.coach).tabItem { Label("Coach", systemImage: "sparkles") }
+            InsightsView().tag(AppTab.insights).tabItem { Label("Insights", systemImage: "chart.bar") }
+            CoachView().tag(AppTab.coach).tabItem { Label("Coach", systemImage: "bubble.left") }
         }
+        .toolbarBackground(Theme.background, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }
