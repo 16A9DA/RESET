@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import Charts
 import ResetCore
 
 struct ActivityView: View {
@@ -16,14 +15,17 @@ struct ActivityView: View {
         let s = DaySummaryBuilder.build(context: context, profile: profiles.first, health: health)
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
-                    header
+                VStack(spacing: 14) {
+                    PageHeader(title: "Activity", subtitle: Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))) {
+                        Menu { Button("Refresh steps") { Task { await health.refresh() } } } label: { Icon("ellipsis", size: 22) }
+                            .foregroundStyle(Theme.text).accessibilityLabel("More")
+                    }
                     if !health.authRequested { healthCard }
                     stepsCard
                     WalkCard()
                     yourDay(s)
                 }
-                .padding(.horizontal).padding(.top, 8)
+                .padding(.horizontal, Theme.screenInset).padding(.bottom, 20)
             }
             .background(GlassBackdrop())
             .toolbar(.hidden, for: .navigationBar)
@@ -35,44 +37,47 @@ struct ActivityView: View {
         }
     }
 
-    private var header: some View {
-        PageHeader(title: "Activity", subtitle: Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))) { EmptyView() }
-    }
-
     private var healthCard: some View {
         Card {
-            Label("Apple Health", systemImage: "heart").font(.headline)
-            Button("Connect for steps and workouts") { Task { await health.requestAccess() } }
-                .buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(.black)
-            if let m = health.message { Text(m).font(.footnote).foregroundStyle(Theme.low) }
+            CardHeading(icon: "heart-pulse", title: "Apple Health", tint: Theme.accent)
+            PillButton(title: "Connect for steps and workouts") { Task { await health.requestAccess() } }
+            if let m = health.message { Text(m).font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.low) }
         }
     }
 
     private var stepsCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let steps = health.todaySteps ?? 0
+        return Card {
             HStack {
-                Text("Steps").font(.headline)
+                Text("Steps").font(Theme.text(Theme.Size.cardTitle, .semibold)).foregroundStyle(Theme.text)
                 Spacer()
-                Image(systemName: "shoeprints.fill").font(.footnote).foregroundStyle(Theme.steps)
+                Icon("footprints", size: 20).foregroundStyle(Theme.steps)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(health.todaySteps.map { $0.formatted() } ?? "None").font(.system(size: 48, weight: .bold)).tracking(-1.2).monospacedDigit()
-                Text("/ 8,000").font(.subheadline).foregroundStyle(Theme.secondaryText)
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text(health.todaySteps.map { $0.formatted() } ?? "None").font(Theme.number(Theme.Size.stepNumber)).tracking(-0.8).foregroundStyle(Theme.text)
+                Text("/ 8,000").font(Theme.text(Theme.Size.cardTitle)).foregroundStyle(Theme.secondaryText)
             }
-            ProgressBar(fraction: Double(health.todaySteps ?? 0) / 8000, tint: Theme.steps).frame(height: 6)
-            if !health.week.isEmpty {
-                let last = health.week.last?.day
-                Chart(health.week) { d in
-                    BarMark(x: .value("Day", d.day, unit: .day), y: .value("Steps", d.steps), width: .fixed(14))
-                        .foregroundStyle(d.day == last ? Theme.steps : Theme.raised).clipShape(Capsule())
+            ProgressBar(fraction: Double(steps) / 8000, tint: Theme.steps)
+            if !health.week.isEmpty { weekBars }
+        }
+    }
+
+    /// Seven rounded bars, today in lime, the days before in the raised grey. Bar height follows the day's steps.
+    private var weekBars: some View {
+        let top = Double(max(8000, health.week.map(\.steps).max() ?? 0))
+        let lastDay = health.week.last?.day
+        return HStack(alignment: .bottom) {
+            ForEach(health.week) { d in
+                let today = d.day == lastDay
+                VStack(spacing: 7) {
+                    Capsule().fill(today ? Theme.steps : Theme.raised).frame(width: 13, height: max(8, Double(d.steps) / top * 70))
+                    Text(d.day.formatted(.dateTime.weekday(.narrow))).font(Theme.text(Theme.Size.tab))
+                        .foregroundStyle(today ? Theme.text : Theme.secondaryText)
                 }
-                .chartYScale(domain: 0...max(8000, health.week.map(\.steps).max() ?? 0))
-                .chartYAxis(.hidden)
-                .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption2) } }
-                .frame(height: 96)
+                .frame(maxWidth: .infinity)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
+        .frame(height: 91, alignment: .bottom)
     }
 
     private func yourDay(_ s: DaySummary) -> some View {
@@ -80,30 +85,36 @@ struct ActivityView: View {
         func range(_ c: SessionCategory) -> String {
             let day = sessions.filter { $0.category == c && w.contains($0.start) && $0.status != .needsReview }.sorted { $0.start < $1.start }
             guard let first = day.first else { return "Not recorded" }
-            let end = day.last?.end.map { $0.formatted(date: .omitted, time: .shortened) } ?? "now"
-            return "\(first.start.formatted(date: .omitted, time: .shortened))\u{2013}\(end)"
+            let clock = Date.FormatStyle().hour(.twoDigits(amPM: .omitted)).minute()
+            return "\(first.start.formatted(clock))\u{2013}\(day.last?.end.map { $0.formatted(clock) } ?? "now")"
         }
-        return VStack(spacing: 8) {
+        return VStack(spacing: 10) {
             HStack {
-                Text("YOUR DAY").font(.caption.weight(.semibold)).tracking(0.6)
+                Text("YOUR DAY").font(Theme.text(Theme.Size.caption))
                 Spacer()
-                Text("Filled automatically").font(.caption)
+                Text("Filled automatically").font(Theme.text(Theme.Size.footnote))
             }
-            .foregroundStyle(Theme.secondaryText).padding(.horizontal, 4).padding(.top, 6)
-            ListGroup {
-                NavigationLink { SleepView() } label: {
-                    GroupRow(title: "Sleep", icon: "moon", value: s.sleepHours.map { Fmt.hours($0 * 3600) } ?? "Not recorded", tint: Theme.sleep, showChevron: false)
-                }.buttonStyle(Press())
-                GroupDivider()
-                NavigationLink { TimeTrackingView() } label: {
-                    GroupRow(title: "Work", icon: "briefcase", value: range(.work), showChevron: false)
-                }.buttonStyle(Press())
-                GroupDivider()
-                NavigationLink { TimeTrackingView() } label: {
-                    GroupRow(title: "University", icon: "graduationcap", value: range(.university), showChevron: false)
-                }.buttonStyle(Press())
+            .foregroundStyle(Theme.secondaryText)
+            VStack(spacing: 18) {
+                row("moon", "Sleep", s.sleepHours.map { Fmt.hours($0 * 3600) } ?? "Not recorded", Theme.sleep) { SleepView() }
+                row("briefcase", "Work", range(.work), Theme.secondaryText) { TimeTrackingView() }
+                row("graduation-cap", "University", range(.university), Theme.secondaryText) { TimeTrackingView() }
             }
+            .padding(Theme.cardPadding).frame(maxWidth: .infinity).glass(Theme.cardRadius)
         }
+    }
+
+    private func row<D: View>(_ icon: String, _ title: String, _ value: String, _ tint: Color, @ViewBuilder dest: () -> D) -> some View {
+        let d = dest()
+        return NavigationLink { d } label: {
+            HStack(spacing: 12) {
+                Icon(icon, size: 20).foregroundStyle(tint)
+                Text(title).font(Theme.text(Theme.Size.cardTitle)).foregroundStyle(Theme.text)
+                Spacer()
+                Text(value).font(Theme.text(Theme.Size.tileTitle)).foregroundStyle(Theme.secondaryText).monospacedDigit()
+            }
+            .contentShape(Rectangle())
+        }.buttonStyle(Press())
     }
 }
 
@@ -118,36 +129,42 @@ struct WalkCard: View {
 
     var body: some View {
         Card {
-            if startTS > 0 {
-                TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                    BigMetric(value: elapsed(ctx.date), caption: "Walk in progress")
-                }
-                Button(saving ? "Saving" : "Finish walk") { Task { await finish() } }
-                    .buttonStyle(.borderedProminent).tint(Theme.low).disabled(saving)
-                Button("Discard", role: .destructive) { startTS = 0 }.font(.footnote)
-            } else if skipped {
-                Label("No walk today. That is fine.", systemImage: "leaf").font(.headline).labelStyle(TintedIcon(tint: Theme.good))
-                Text("Rest is a valid next step. We'll pick this up another day.").font(.subheadline).foregroundStyle(Theme.secondaryText)
-                Button { skipDay = 0 } label: { Text("Undo").font(.headline).frame(maxWidth: .infinity, minHeight: 46) }
-                    .buttonStyle(Press()).background(Theme.raised, in: Capsule())
-            } else {
-                Label(Calendar.current.component(.hour, from: .now) >= 17 ? "A little air after work" : "A little air today", systemImage: "figure.walk")
-                    .font(.subheadline.weight(.semibold)).symbolRenderingMode(.monochrome)
-                Text("A gentle 15-minute walk can help you switch off. Only if you feel up to it.")
-                    .font(.subheadline).foregroundStyle(Theme.secondaryText)
-                HStack(spacing: 10) {
-                    Button { startTS = Date.now.timeIntervalSince1970 } label: {
-                        Text("Start walk").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
-                    }
-                    .buttonStyle(Press())
-                    .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
-                    Button { skipDay = Calendar.current.startOfDay(for: .now).timeIntervalSince1970 } label: {
-                        Text("Can't today").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
-                    }
-                    .buttonStyle(Press())
-                    .background(Theme.raised, in: Capsule())
-                }
+            if startTS > 0 { running } else if skipped { skippedState } else { idle }
+        }
+    }
+
+    private var idle: some View {
+        Group {
+            CardHeading(icon: "person-standing", title: Calendar.current.component(.hour, from: .now) >= 17 ? "A little air after work" : "A little air today", iconSize: 20)
+            Text("A gentle 15-minute walk can help you switch off. Only if you feel up to it.")
+                .font(Theme.text(Theme.Size.body)).foregroundStyle(Theme.secondaryText)
+            HStack(spacing: 10) {
+                PillButton(title: "Start walk") { startTS = Date.now.timeIntervalSince1970 }
+                PillButton(title: "Can\u{2019}t today", kind: .secondary) { skipDay = Calendar.current.startOfDay(for: .now).timeIntervalSince1970 }
             }
+        }
+    }
+
+    private var skippedState: some View {
+        Group {
+            CardHeading(icon: "leaf", title: "No walk today. That is fine.", tint: Theme.good, iconSize: 22)
+            Text("Rest is a valid next step. We\u{2019}ll pick this up another day.").font(Theme.text(Theme.Size.body)).foregroundStyle(Theme.secondaryText)
+            PillButton(title: "Undo", kind: .secondary) { skipDay = 0 }
+        }
+    }
+
+    private var running: some View {
+        Group {
+            HStack {
+                Text("Walk in progress").font(Theme.text(Theme.Size.cardTitle, .semibold)).foregroundStyle(Theme.text)
+                Spacer()
+                Text("Timer running").font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.accent)
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                Text(elapsed(ctx.date)).font(Theme.number(Theme.Size.timer)).tracking(-0.8).foregroundStyle(Theme.text).monospacedDigit()
+            }
+            PillButton(title: saving ? "Saving" : "Finish walk", icon: "check") { Task { await finish() } }.disabled(saving)
+            Button("Discard", role: .destructive) { startTS = 0 }.font(Theme.text(Theme.Size.caption))
         }
     }
 
