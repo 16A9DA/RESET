@@ -65,8 +65,7 @@ struct TodayView: View {
                         sleepTile(s)
                     }
                     bodyStrip(s)
-                    let times = [SessionCategory.work, .university, .gym].filter { hasTime($0) }
-                    ForEach(times, id: \.self) { timeRow($0, s) }
+                    timesCard
                 }
                 .padding(.horizontal, Theme.screenInset).padding(.top, 8)
             }
@@ -130,33 +129,35 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// A work, university or gym card appears only after you have been there once.
-    private func hasTime(_ category: SessionCategory) -> Bool {
-        sessions.contains { $0.category == category }
-    }
-
-    /// Work, university and gym fill themselves from place detection: "09:02 to 17:40, 8h 38m".
-    @ViewBuilder private func timeRow(_ category: SessionCategory, _ s: DaySummary) -> some View {
+    /// One card for the day's place timings. Hidden until a session starts today. Work, university and gym
+    /// each add a row as they start, so at most three rows share the card.
+    @ViewBuilder private var timesCard: some View {
         let now = Date.now
         let w = Day.interval(of: now)
-        let today = sessions.filter { $0.category == category && w.contains($0.start) && $0.status != .needsReview }.sorted { $0.start < $1.start }
-        let done = SessionMath.totals(sessions.map(\.value), category: category, in: w, now: now).total
-        let here = today.contains { $0.end == nil }
-        if hasTime(category) {
-            Card(spacing: 8) {
-                HStack {
-                    CardHeading(icon: category == .work ? "briefcase" : (category == .gym ? "dumbbell" : "graduationcap"),
-                                title: category.rawValue.capitalized, tint: Theme.secondaryText)
-                    Spacer()
-                    if here { Text("Here now").font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.good) }
-                }
-                HStack(alignment: .firstTextBaseline) {
-                    Text(Fmt.hours(done)).font(Theme.number(Theme.Size.workNumber)).tracking(-0.8).foregroundStyle(Theme.text)
-                    Spacer()
-                    if let first = today.first {
-                        let last = today.last?.end
-                        Text("\(first.start.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute())) to \(last.map { $0.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute()) } ?? "now")")
-                            .font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText).monospacedDigit()
+        let clock = Date.FormatStyle().hour(.twoDigits(amPM: .omitted)).minute()
+        let rows: [(SessionCategory, [TrackedSession])] = [SessionCategory.work, .university, .gym].compactMap { c in
+            let day = sessions.filter { $0.category == c && w.contains($0.start) && $0.status != .needsReview }.sorted { $0.start < $1.start }
+            return day.isEmpty ? nil : (c, day)
+        }
+        if !rows.isEmpty {
+            Card(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
+                        let (category, day) = row
+                        let total = SessionMath.totals(sessions.map(\.value), category: category, in: w, now: now).total
+                        let here = day.contains { $0.end == nil }
+                        let span = "\(day[0].start.formatted(clock))\u{2013}\(day.last?.end.map { $0.formatted(clock) } ?? "now")"
+                        if i > 0 { Rectangle().fill(Theme.hairline).frame(width: 1) }
+                        VStack(alignment: .leading, spacing: 6) {
+                            CardHeading(icon: category == .work ? "briefcase" : (category == .gym ? "dumbbell" : "graduation-cap"),
+                                        title: category.rawValue.capitalized, tint: Theme.secondaryText, iconSize: 16)
+                                .lineLimit(1)
+                            Text(Fmt.hours(total)).font(Theme.number(rows.count > 1 ? 24 : Theme.Size.workNumber)).tracking(-0.8)
+                                .foregroundStyle(Theme.text).lineLimit(1).minimumScaleFactor(0.7)
+                            Text(span).font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+                            Text(here ? "Here now" : " ").font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.good)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 Text("Automatically filled \u{b7} No logging needed").font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
