@@ -186,8 +186,21 @@ final class ChatMessage {
     var text: String
     /// JSON of a pending tool call awaiting confirmation, if any.
     var pendingActionJSON: String?
-    init(role: String, text: String, pendingActionJSON: String? = nil) {
-        id = UUID(); at = .now; self.role = role; self.text = text; self.pendingActionJSON = pendingActionJSON
+    /// The chat this message belongs to. Nil only for messages saved before chats existed.
+    var sessionID: UUID?
+    init(role: String, text: String, pendingActionJSON: String? = nil, sessionID: UUID? = nil) {
+        id = UUID(); at = .now; self.role = role; self.text = text; self.pendingActionJSON = pendingActionJSON; self.sessionID = sessionID
+    }
+}
+
+@Model
+final class ChatSession {
+    @Attribute(.unique) var id: UUID
+    var title: String
+    var createdAt: Date
+    var updatedAt: Date
+    init(title: String = "New chat") {
+        id = UUID(); self.title = title; createdAt = .now; updatedAt = .now
     }
 }
 

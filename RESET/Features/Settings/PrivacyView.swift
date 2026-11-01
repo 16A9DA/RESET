@@ -87,6 +87,7 @@ struct PrivacyView: View {
                 try context.delete(model: PurchaseDraft.self)
             case .chat:
                 try context.delete(model: ChatMessage.self)
+                try context.delete(model: ChatSession.self)
             case .everything:
                 try Store.resetAll(context)
                 WidgetBridge.clear()
