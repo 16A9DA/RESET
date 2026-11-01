@@ -72,7 +72,11 @@ struct TodayView: View {
             .background(GlassBackdrop())
             .safeAreaInset(edge: .bottom) { logBar }
             .navigationTitle("Today")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("RE:SET AI").font(.caption.weight(.semibold)).tracking(0.4).foregroundStyle(Theme.secondaryText)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink { TimelineScreen() } label: { Image(systemName: "clock") }.accessibilityLabel("Timeline")
                 }
@@ -115,17 +119,17 @@ struct TodayView: View {
     private func header(_ s: DaySummary, symptoms: Bool) -> some View {
         let hour = Calendar.current.component(.hour, from: .now)
         return VStack(alignment: .leading, spacing: 4) {
-            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))).font(.subheadline).foregroundStyle(Theme.secondaryText)
+            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)).uppercased()).font(.subheadline).tracking(0.3).foregroundStyle(Theme.secondaryText)
             Text(Priority.message(s, symptoms: symptoms, hour: hour))
-                .font(.system(.title, design: .rounded, weight: .bold)).tracking(-0.6).lineSpacing(1)
+                .font(.system(size: 30, weight: .bold)).tracking(-0.6).lineSpacing(1)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
     }
 
+    /// A work, university or gym card appears only after you have been there once.
     private func hasTime(_ category: SessionCategory) -> Bool {
-        let w = Day.interval(of: .now)
-        return profile?.goalSeconds(category) != nil || sessions.contains { $0.category == category && w.contains($0.start) && $0.status != .needsReview }
+        sessions.contains { $0.category == category }
     }
 
     /// Work, university and gym fill themselves from place detection: "09:02 to 17:40, 8h 38m".
@@ -136,23 +140,27 @@ struct TodayView: View {
         let done = SessionMath.totals(sessions.map(\.value), category: category, in: w, now: now).total
         let goal = profile?.goalSeconds(category)
         let here = today.contains { $0.end == nil }
-        if goal != nil || !today.isEmpty {
-            Card {
+        if hasTime(category) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label(category.rawValue.capitalized, systemImage: category == .work ? "briefcase" : (category == .gym ? "dumbbell" : "graduationcap"))
-                        .font(.headline)
-                    if here { Text("Here now").font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 2)
-                        .background(Theme.accent, in: Capsule()).foregroundStyle(.black) }
+                        .font(.headline).labelStyle(TintedIcon(tint: Theme.secondaryText))
                     Spacer()
-                    Text(Fmt.hours(done)).font(.system(.title3, design: .rounded, weight: .bold)).monospacedDigit()
+                    if here { Text("Here now").font(.caption.weight(.semibold)).foregroundStyle(Theme.good) }
                 }
-                if let first = today.first {
-                    let last = today.last?.end
-                    Text("\(first.start.formatted(date: .omitted, time: .shortened)) to \(last.map { $0.formatted(date: .omitted, time: .shortened) } ?? "now")")
-                        .font(.subheadline).foregroundStyle(Theme.secondaryText).monospacedDigit()
+                HStack(alignment: .firstTextBaseline) {
+                    Text(Fmt.hours(done)).font(.system(size: 40, weight: .bold)).tracking(-1).monospacedDigit()
+                    Spacer()
+                    if let first = today.first {
+                        let last = today.last?.end
+                        Text("\(first.start.formatted(date: .omitted, time: .shortened)) to \(last.map { $0.formatted(date: .omitted, time: .shortened) } ?? "now")")
+                            .font(.footnote).foregroundStyle(Theme.secondaryText).monospacedDigit()
+                    }
                 }
-                if let goal { ProgressBar(fraction: done / goal) }
+                if let goal { ProgressBar(fraction: done / goal).frame(height: 5) }
+                Text("Automatically filled · No logging needed").font(.footnote).foregroundStyle(Theme.secondaryText)
             }
+            .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
         }
     }
 
@@ -162,29 +170,28 @@ struct TodayView: View {
             .padding(18).glass(24)
     }
 
-    /// Recovery and steps, small. Secondary to food, water and sleep. Tap recovery to check in.
+    /// Recovery and steps on one slim row. Tap recovery to check in.
     private func bodyStrip(_ s: DaySummary) -> some View {
         let tint = s.recoveryBand.color
-        return HStack(spacing: 0) {
+        return HStack {
             Button { sheet = .checkIn } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("Recovery", systemImage: "heart.fill").font(.caption.weight(.semibold)).foregroundStyle(tint)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(s.recoveryScore.map(String.init) ?? "--").font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit()
-                        Text(s.recoveryBand == .unknown ? "Check in" : s.recoveryBand.title).font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
-                    }
+                HStack(spacing: 8) {
+                    Image(systemName: "heart.text.square").foregroundStyle(tint)
+                    Text("Recovery").foregroundStyle(Theme.secondaryText)
+                    Text(s.recoveryScore.map(String.init) ?? "--").font(.headline).monospacedDigit()
+                    Text(s.recoveryBand == .unknown ? "Check in" : s.recoveryBand.title).foregroundStyle(tint).lineLimit(1)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.subheadline)
             }.buttonStyle(Press())
-            Rectangle().fill(Theme.hairline).frame(width: 1, height: 36).padding(.horizontal, 14)
-            VStack(alignment: .leading, spacing: 4) {
-                Label("Steps", systemImage: "figure.walk").font(.caption.weight(.semibold)).foregroundStyle(Theme.steps)
-                Text(s.steps.map { $0.formatted() } ?? "None").font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit()
+            Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: "shoeprints.fill").foregroundStyle(Theme.steps)
+                Text(s.steps.map { $0.formatted() } ?? "None").font(.headline).monospacedDigit()
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.subheadline)
         }
-        .padding(16).glass(22)
-        .accessibilityElement(children: .combine)
+        .padding(.horizontal, 18).frame(minHeight: 56).glass(22)
+        .accessibilityElement(children: .contain)
     }
 
     private func waterTile(_ s: DaySummary) -> some View {
@@ -193,8 +200,9 @@ struct TodayView: View {
             context.insert(WaterRecord(ml: ml)); try? context.save()
             Task { await notifier.rebuild(context: context) }
         } label: {
-            tileBody("Water", String(format: "%.1f L", s.waterMl / 1000), icon: "drop.fill", tint: Theme.water,
-                     fraction: s.waterGoalMl.map { s.waterMl / $0 }, caption: s.waterGoalMl.map { String(format: "of %.1f L", $0 / 1000) })
+            tileBody("Water", String(format: "%.1f L", s.waterMl / 1000), icon: "drop", tint: Theme.water,
+                     fraction: s.waterGoalMl.map { s.waterMl / $0 },
+                     caption: s.waterGoalMl.map { String(format: "of %.1f L", $0 / 1000) + " · +\(Int(ml)) ml" }, plus: true)
         }
         .buttonStyle(Press())
         .sensoryFeedback(.success, trigger: waters.count)
@@ -205,23 +213,26 @@ struct TodayView: View {
         tileBody(title, value ?? "None", icon: icon, tint: tint, fraction: fraction, caption: value == nil ? "Not recorded" : caption)
     }
 
-    /// Compact metric tile: icon and name, one big number, a goal bar underneath.
-    private func tileBody(_ title: String, _ value: String, icon: String, tint: Color, fraction: Double?, caption: String?) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon).font(.subheadline.weight(.semibold)).foregroundStyle(tint)
-            Text(value).font(.system(size: 28, weight: .bold, design: .rounded)).tracking(-0.5).monospacedDigit()
-                .lineLimit(1).minimumScaleFactor(0.7)
-            ProgressBar(fraction: fraction ?? 0, tint: tint).frame(height: 5).opacity(fraction == nil ? 0.3 : 1)
-            Text(caption ?? " ").font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
+    /// Compact metric tile: icon and name, one big number, a caption, a goal bar underneath.
+    private func tileBody(_ title: String, _ value: String, icon: String, tint: Color, fraction: Double?, caption: String?, plus: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(title, systemImage: icon).font(.body).labelStyle(TintedIcon(tint: tint))
+                Spacer()
+                if plus { Image(systemName: "plus.circle").font(.title3).foregroundStyle(tint) }
+            }
+            Text(value).font(.system(size: 36, weight: .bold)).tracking(-0.8).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(caption ?? " ").font(.subheadline).foregroundStyle(Theme.secondaryText).lineLimit(1)
+            ProgressBar(fraction: fraction ?? 0, tint: tint).frame(height: 6).opacity(fraction == nil ? 0.3 : 1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
-        .glass(22)
+        .frame(maxWidth: .infinity, alignment: .leading).padding(16)
+        .glass(24)
         .accessibilityElement(children: .combine)
     }
 
     /// Opens the sleep history when there is a night, otherwise the manual log so a missing Health import never blocks you.
     @ViewBuilder private func sleepTile(_ s: DaySummary) -> some View {
-        let body = tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon.fill", tint: Theme.sleep,
+        let body = tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon", tint: Theme.sleep,
                         fraction: s.sleepHours.map { $0 / s.sleepTargetHours },
                         caption: s.sleepHours == nil ? "Tap to log" : "of \(String(format: "%g", s.sleepTargetHours)) h")
         if s.sleepHours == nil {
@@ -233,15 +244,13 @@ struct TodayView: View {
 
     /// One place to log anything you eat or drink. Floats over the content on a translucent layer.
     private var logBar: some View {
-        HStack(spacing: 8) {
-            Button { sheet = .food } label: {
-                Label("Log food or drink", systemImage: "plus").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
-            }
-            .buttonStyle(Press())
-            .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
+        Button { sheet = .food } label: {
+            Label("Log food or drink", systemImage: "plus").font(.headline).frame(maxWidth: .infinity, minHeight: 54)
         }
-        .padding(8).background(.ultraThinMaterial, in: Capsule())
-        .padding(.horizontal).padding(.bottom, 4)
+        .buttonStyle(Press())
+        .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
+        .padding(.horizontal, 20).padding(.vertical, 12)
+        .background(Theme.background)
     }
 }
 
@@ -251,5 +260,13 @@ struct Press: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.3, bounce: 0), value: configuration.isPressed)
+    }
+}
+
+/// Icon in the metric color, title in the quiet text color.
+struct TintedIcon: LabelStyle {
+    var tint: Color
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) { configuration.icon.foregroundStyle(tint); configuration.title }
     }
 }
