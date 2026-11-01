@@ -11,29 +11,31 @@ struct InsightsView: View {
     @Query private var checks: [CheckIn]
     @Query private var meals: [MealRecord]
     @Query private var caffeine: [CaffeineRecord]
+    @Query private var waters: [WaterRecord]
     @Query private var acts: [ActivityRecord]
     @Query private var sessions: [TrackedSession]
     @Query(sort: \WeightRecord.at) private var weights: [WeightRecord]
     @State private var weightText = ""
+    @State private var weightSheet = false
 
     private var profile: UserProfile? { profiles.first }
 
 
     var body: some View {
-        let _ = (sleeps.count, checks.count, meals.count, caffeine.count, acts.count, sessions.count)
-        let days = InsightData.days(context: context, profile: profile)
+        let _ = (sleeps.count, checks.count, meals.count, caffeine.count, acts.count, sessions.count, waters.count)
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    weekHero(days)
-                    weekCharts(days)
-                    standout(days)
-                    workChart
-                    weightCard
-                }.padding()
+                    header
+                    weekCards
+                    weightRow
+                }.padding(.horizontal).padding(.top, 8).padding(.bottom, 12)
             }
             .background(GlassBackdrop())
-            .navigationTitle("Insights")
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $weightSheet) {
+                ScrollView { weightCard.padding() }.background(GlassBackdrop()).presentationDetents([.medium, .large])
+            }
         }
     }
 
@@ -41,44 +43,90 @@ struct InsightsView: View {
 
     private func avg(_ v: [Double]) -> Double? { v.isEmpty ? nil : v.reduce(0, +) / Double(v.count) }
 
-    private func weekHero(_ days: [InsightDay]) -> some View {
-        let thisWeek = Array(days.suffix(7)), lastWeek = Array(days.dropLast(7).suffix(7))
-        return Card(title: "This week") {
-            HStack(alignment: .top, spacing: 12) {
-                stat("Sleep", avg(thisWeek.compactMap(\.sleepHours)), avg(lastWeek.compactMap(\.sleepHours)), unit: "h", good: .up)
-                stat("Steps", avg(health.week.map { Double($0.steps) }.filter { $0 > 0 }), nil, unit: "", good: .up, whole: true)
-                stat("Workouts", Double(thisWeek.filter(\.trained).count), Double(lastWeek.filter(\.trained).count), unit: "", good: .up)
-            }
-        }
-    }
-
-    private func weekCharts(_ days: [InsightDay]) -> some View {
+    private var week: [Date] {
         let cal = Calendar.current
-        let week = (0..<7).reversed().compactMap { cal.date(byAdding: .day, value: -$0, to: cal.startOfDay(for: .now)) }
-        let target = profile?.sleepTargetHours ?? 8
-        return Card {
-            HStack(alignment: .top, spacing: 16) {
-                miniBars("Steps", Theme.steps, 8000, week.map { d in (d, Double(health.week.first { cal.isDate($0.day, inSameDayAs: d) }?.steps ?? 0)) })
-                miniBars("Sleep h", Theme.sleep, target, week.map { d in (d, sleeps.first { cal.isDate($0.day, inSameDayAs: d) }?.hours ?? 0) })
-            }
+        return (0..<7).reversed().compactMap { cal.date(byAdding: .day, value: -$0, to: cal.startOfDay(for: .now)) }
+    }
+
+    private var header: some View {
+        let sub: String = {
+            guard let a = week.first, let b = week.last else { return "This week" }
+            return "\(a.formatted(.dateTime.day()))\u{2013}\(b.formatted(.dateTime.day().month(.wide))) \u{b7} This week"
+        }()
+        return PageHeader(title: "Insights", subtitle: sub) {
+            Image(systemName: "calendar").font(.title2).foregroundStyle(Theme.secondaryText).accessibilityHidden(true)
         }
     }
 
-    private func miniBars(_ title: String, _ tint: Color, _ goal: Double, _ data: [(Date, Double)]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(tint)
-            Chart {
-                ForEach(data, id: \.0) { d, v in
-                    BarMark(x: .value("Day", d, unit: .day), y: .value(title, v), width: .fixed(9))
-                        .foregroundStyle(v >= goal ? tint : tint.opacity(0.4)).clipShape(Capsule())
-                }
-                RuleMark(y: .value("Goal", goal)).lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3])).foregroundStyle(Theme.secondaryText.opacity(0.5))
-            }
-            .chartYAxis(.hidden)
-            .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption2) } }
-            .frame(height: 90)
+    private var weekCards: some View {
+        let cal = Calendar.current
+        let sleepTarget = profile?.sleepTargetHours ?? 8
+        let sleep = week.map { d in sleeps.first { cal.isDate($0.day, inSameDayAs: d) }?.hours ?? 0 }
+        let steps = week.map { d in Double(health.week.first { cal.isDate($0.day, inSameDayAs: d) }?.steps ?? 0) }
+        let water = week.map { d in waters.filter { cal.isDate($0.at, inSameDayAs: d) }.reduce(0) { $0 + $1.ml } / 1000 }
+        let kcal = week.map { d in NutritionTotals.day(meals.map { ($0.at, $0.items) }, on: d).total.kcal }
+        func mean(_ v: [Double]) -> Double? { let x = v.filter { $0 > 0 }; return x.isEmpty ? nil : x.reduce(0, +) / Double(x.count) }
+        let sleepAvg = mean(sleep), stepsAvg = mean(steps), waterAvg = mean(water), kcalAvg = mean(kcal)
+        let waterGoal = (profile?.effectiveWaterGoalMl ?? 3000) / 1000
+        let kcalGoal = profile?.energyPlan.targetKcal ?? 2500
+        let known = kcal.filter { $0 > 0 }
+        let steady = (known.max() ?? 0) - (known.min() ?? 0) < (kcalAvg ?? 0) * 0.35
+        func k(_ v: Double) -> String { v >= 1000 ? (v / 1000).formatted(.number.precision(.fractionLength(0...1))) + "k" : "\(Int(v))" }
+        return VStack(spacing: 12) {
+            insightCard("Sleep", sleepAvg.map { $0.formatted(.number.precision(.fractionLength(1))) }, "h avg",
+                        sleepAvg.map { $0 < sleepTarget - 1 ? "Sleep ran short this week. An earlier bedtime would help." : "A consistent bedtime could make mornings easier." }
+                            ?? "No nights recorded this week.",
+                        Theme.sleep, sleep, top: max(sleepTarget, sleep.max() ?? 0), topLabel: "\(Int(max(sleepTarget, sleep.max() ?? 0).rounded())) h", zeroLabel: "0 h")
+            insightCard("Steps", stepsAvg.map { Int($0).formatted() }, "steps avg",
+                        (stepsAvg ?? 0) >= 8000 ? "You are reaching your steps. Keep them gentle." : "Your workday walks add up. Keep them gentle.",
+                        Theme.steps, steps, top: max(8000, steps.max() ?? 0), topLabel: k(max(8000, steps.max() ?? 0)), zeroLabel: "0")
+            insightCard("Water", waterAvg.map { $0.formatted(.number.precision(.fractionLength(1))) }, "L avg",
+                        (waterAvg ?? 0) < waterGoal * 0.7 ? "Keep a glass nearby for your next work break." : "Water is on track. Keep it up.",
+                        Theme.water, water, top: max(waterGoal, water.max() ?? 0), topLabel: "\(Int(max(waterGoal, water.max() ?? 0).rounded())) L", zeroLabel: "0 L")
+            insightCard("Energy", kcalAvg.map { Int($0).formatted() }, "kcal avg",
+                        kcalAvg == nil ? "No meals logged this week." : (steady ? "Your intake is fairly steady across the week." : "Intake varied this week. Regular meals help."),
+                        Theme.food, kcal, top: max(kcalGoal, kcal.max() ?? 0), topLabel: k(max(kcalGoal, kcal.max() ?? 0)), zeroLabel: "0")
+            Text("Daily totals \u{b7} Last bar is today \u{b7} Trends, not grades").font(.footnote).foregroundStyle(Theme.secondaryText)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 2)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func insightCard(_ title: String, _ value: String?, _ unit: String, _ caption: String, _ tint: Color, _ values: [Double],
+                             top: Double, topLabel: String, zeroLabel: String) -> some View {
+        let today = week.last
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(.headline)
+                Spacer()
+                Text(value ?? "None").font(.system(size: 30, weight: .bold)).tracking(-0.6).monospacedDigit()
+                if value != nil { Text(unit).font(.subheadline).foregroundStyle(Theme.secondaryText) }
+            }
+            Text(caption).font(.subheadline).foregroundStyle(Theme.secondaryText)
+            Chart(Array(zip(week, values)), id: \.0) { d, v in
+                BarMark(x: .value("Day", d, unit: .day), y: .value(title, v), width: .fixed(16))
+                    .foregroundStyle(d == today ? tint : tint.opacity(0.5)).clipShape(Capsule())
+            }
+            .chartYScale(domain: 0...max(top, 0.001))
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [0.0, top]) { value in
+                    AxisValueLabel {
+                        Text((value.as(Double.self) ?? 0) == 0 ? zeroLabel : topLabel).font(.caption).foregroundStyle(Theme.secondaryText)
+                    }
+                }
+            }
+            .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption).foregroundStyle(Theme.secondaryText) } }
+            .frame(height: 96)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
+    }
+
+    /// Weight stays available but takes one slim row. The full log and trend open in a sheet.
+    private var weightRow: some View {
+        let imperial = profile?.units == .imperial
+        let v = weights.last.map { imperial ? String(format: "%.1f lb", Units.kgToLb($0.kg)) : String(format: "%.1f kg", $0.kg) } ?? "Log"
+        return ListGroup {
+            Button { weightSheet = true } label: { GroupRow(title: "Weight", icon: "scalemass", value: v, tint: Theme.secondaryText) }.buttonStyle(Press())
+        }
     }
 
     private enum Good { case up, none }
@@ -97,33 +145,6 @@ struct InsightsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-
-    @ViewBuilder private func standout(_ days: [InsightDay]) -> some View {
-        let found = InsightEngine.all(days, sleepTarget: profile?.sleepTargetHours ?? 8).filter { $0.state == .pattern }
-        if found.isEmpty {
-            Card { Label("Patterns appear after about two weeks of tracking.", systemImage: "hourglass").font(.subheadline) }
-        } else {
-            ForEach(found) { i in
-                Card(title: i.title) { Text(i.text).font(.subheadline) }
-            }
-        }
-    }
-
-    @ViewBuilder private var workChart: some View {
-        let vals = sessions.map(\.value)
-        let cal = Calendar.current
-        let data: [(Date, Double)] = (0..<7).reversed().compactMap { back in
-            guard let d = cal.date(byAdding: .day, value: -back, to: cal.startOfDay(for: .now)) else { return nil }
-            let w = Day.interval(of: d)
-            return (d, (SessionMath.totals(vals, category: .work, in: w, now: .now).total + SessionMath.totals(vals, category: .university, in: w, now: .now).total) / 3600)
-        }
-        if data.contains(where: { $0.1 > 0 }) {
-            Card(title: "Work and university hours") {
-                Chart(data, id: \.0) { BarMark(x: .value("Day", $0.0, unit: .day), y: .value("Hours", $0.1)).foregroundStyle(Theme.accent) }.frame(height: 130)
-            }
-        }
-    }
-
 
     // MARK: Weight
 
