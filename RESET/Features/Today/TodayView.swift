@@ -56,7 +56,8 @@ struct TodayView: View {
         let symptoms = checks.contains { $0.kind == .symptom && $0.at > Date.now.addingTimeInterval(-24 * 3600) }
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(spacing: Theme.gap) {
+                    pageNavigation
                     header(s, symptoms: symptoms)
                     foodCard(s)
                     HStack(spacing: 12) {
@@ -67,23 +68,11 @@ struct TodayView: View {
                     let times = [SessionCategory.work, .university, .gym].filter { hasTime($0) }
                     ForEach(times, id: \.self) { timeRow($0, s) }
                 }
-                .padding(.horizontal).padding(.top, 8)
+                .padding(.horizontal, Theme.screenInset).padding(.top, 8)
             }
             .background(GlassBackdrop())
             .safeAreaInset(edge: .bottom) { logBar }
-            .navigationTitle("Today")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("RE:SET AI").font(.caption.weight(.semibold)).tracking(0.4).foregroundStyle(Theme.secondaryText)
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink { TimelineScreen() } label: { Image(systemName: "clock") }.accessibilityLabel("Timeline")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }.accessibilityLabel("Settings and profile")
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .task { await health.refresh(); await notifier.rebuild(context: context) }
             .task { RecoverySnapshot.store(RecoverySnapshot.assess(context: context, profile: profile), context: context) }
             .task(id: [meals.count, waters.count, caffeines.count, acts.count, Int(health.todaySteps ?? -1)]) { WidgetBridge.publish(s) }
@@ -116,15 +105,29 @@ struct TodayView: View {
 
     // MARK: Pieces
 
+    /// History on the left, app name in the middle, settings on the right. 44 high, 22 inset.
+    private var pageNavigation: some View {
+        HStack {
+            NavigationLink { TimelineScreen() } label: { Icon("history", size: 22) }.accessibilityLabel("Timeline")
+            Spacer()
+            Text("RE:SET AI").font(Theme.text(Theme.Size.caption, .bold)).foregroundStyle(Theme.secondaryText)
+            Spacer()
+            NavigationLink { SettingsView() } label: { Icon("settings", size: 22) }.accessibilityLabel("Settings and profile")
+        }
+        .foregroundStyle(Theme.text)
+        .padding(.horizontal, 2).frame(height: 44)
+    }
+
     private func header(_ s: DaySummary, symptoms: Bool) -> some View {
         let hour = Calendar.current.component(.hour, from: .now)
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)).uppercased()).font(.subheadline).tracking(0.3).foregroundStyle(Theme.secondaryText)
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)).uppercased())
+                .font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText)
             Text(Priority.message(s, symptoms: symptoms, hour: hour))
-                .font(.system(size: 30, weight: .bold)).tracking(-0.6).lineSpacing(1)
+                .font(Theme.text(Theme.Size.headline, .bold, relativeTo: .title2)).foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// A work, university or gym card appears only after you have been there once.
@@ -138,36 +141,33 @@ struct TodayView: View {
         let w = Day.interval(of: now)
         let today = sessions.filter { $0.category == category && w.contains($0.start) && $0.status != .needsReview }.sorted { $0.start < $1.start }
         let done = SessionMath.totals(sessions.map(\.value), category: category, in: w, now: now).total
-        let goal = profile?.goalSeconds(category)
         let here = today.contains { $0.end == nil }
         if hasTime(category) {
-            VStack(alignment: .leading, spacing: 8) {
+            Card(spacing: 8) {
                 HStack {
-                    Label(category.rawValue.capitalized, systemImage: category == .work ? "briefcase" : (category == .gym ? "dumbbell" : "graduationcap"))
-                        .font(.headline).labelStyle(TintedIcon(tint: Theme.secondaryText))
+                    CardHeading(icon: category == .work ? "briefcase" : (category == .gym ? "dumbbell" : "graduationcap"),
+                                title: category.rawValue.capitalized, tint: Theme.secondaryText)
                     Spacer()
-                    if here { Text("Here now").font(.caption.weight(.semibold)).foregroundStyle(Theme.good) }
+                    if here { Text("Here now").font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.good) }
                 }
                 HStack(alignment: .firstTextBaseline) {
-                    Text(Fmt.hours(done)).font(.system(size: 40, weight: .bold)).tracking(-1).monospacedDigit()
+                    Text(Fmt.hours(done)).font(Theme.number(Theme.Size.workNumber)).tracking(-0.8).foregroundStyle(Theme.text)
                     Spacer()
                     if let first = today.first {
                         let last = today.last?.end
-                        Text("\(first.start.formatted(date: .omitted, time: .shortened)) to \(last.map { $0.formatted(date: .omitted, time: .shortened) } ?? "now")")
-                            .font(.footnote).foregroundStyle(Theme.secondaryText).monospacedDigit()
+                        Text("\(first.start.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute())) to \(last.map { $0.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute()) } ?? "now")")
+                            .font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText).monospacedDigit()
                     }
                 }
-                if let goal { ProgressBar(fraction: done / goal).frame(height: 5) }
-                Text("Automatically filled · No logging needed").font(.footnote).foregroundStyle(Theme.secondaryText)
+                Text("Automatically filled \u{b7} No logging needed").font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
             }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(18).glass(24)
         }
     }
 
     private func foodCard(_ s: DaySummary) -> some View {
         FoodSummary(kcal: s.kcalConsumed, target: s.kcalTarget, counting: s.calorieCounting,
                     protein: (s.proteinG, s.proteinTargetG), carbs: (s.carbsG, s.carbsTargetG), fat: (s.fatG, s.fatTargetG))
-            .padding(18).glass(24)
+            .padding(Theme.cardPadding).frame(maxWidth: .infinity, alignment: .leading).glass(Theme.cardRadius)
     }
 
     /// Recovery and steps on one slim row. Tap recovery to check in.
@@ -175,66 +175,43 @@ struct TodayView: View {
         let tint = s.recoveryBand.color
         return HStack {
             Button { sheet = .checkIn } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "heart.text.square").foregroundStyle(tint)
-                    Text("Recovery").foregroundStyle(Theme.secondaryText)
-                    Text(s.recoveryScore.map(String.init) ?? "--").font(.headline).monospacedDigit()
-                    Text(s.recoveryBand == .unknown ? "Check in" : s.recoveryBand.title).foregroundStyle(tint).lineLimit(1)
+                HStack(spacing: 7) {
+                    Icon("heart-pulse", size: 17).foregroundStyle(tint)
+                    Text("Recovery").font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText)
+                    Text(s.recoveryScore.map(String.init) ?? "--").font(Theme.text(Theme.Size.body, .bold)).foregroundStyle(Theme.text).monospacedDigit()
+                    Text(s.recoveryBand == .unknown ? "Check in" : s.recoveryBand.title).font(Theme.text(Theme.Size.caption)).foregroundStyle(tint).lineLimit(1)
                 }
-                .font(.subheadline)
             }.buttonStyle(Press())
             Spacer()
-            HStack(spacing: 8) {
-                Image(systemName: "shoeprints.fill").foregroundStyle(Theme.steps)
-                Text(s.steps.map { $0.formatted() } ?? "None").font(.headline).monospacedDigit()
+            HStack(spacing: 6) {
+                Icon("footprints", size: 17).foregroundStyle(Theme.steps)
+                Text(s.steps.map { $0.formatted() } ?? "None").font(Theme.text(Theme.Size.tileTitle, .semibold)).foregroundStyle(Theme.text).monospacedDigit()
             }
-            .font(.subheadline)
         }
-        .padding(.horizontal, 18).frame(minHeight: 56).glass(22)
+        .padding(Theme.tilePadding).frame(maxWidth: .infinity).glass(Theme.cardRadius)
         .accessibilityElement(children: .contain)
     }
 
     private func waterTile(_ s: DaySummary) -> some View {
         let ml = Double(profile?.quickWaterMl[safe: 1] ?? 250)
+        let goal = s.waterGoalMl.map { String(format: "of %.1f L", $0 / 1000) } ?? "No goal"
         return Button {
             context.insert(WaterRecord(ml: ml)); try? context.save()
             Task { await notifier.rebuild(context: context) }
         } label: {
-            tileBody("Water", String(format: "%.1f L", s.waterMl / 1000), icon: "drop", tint: Theme.water,
-                     fraction: s.waterGoalMl.map { s.waterMl / $0 },
-                     caption: s.waterGoalMl.map { String(format: "of %.1f L", $0 / 1000) + " · +\(Int(ml)) ml" }, plus: true)
+            Tile(title: "Water", icon: "droplet", tint: Theme.water, value: String(format: "%.1f L", s.waterMl / 1000),
+                 caption: "\(goal)  \u{b7}  +\(Int(ml)) ml", fraction: s.waterGoalMl.map { s.waterMl / $0 }, plus: true)
         }
         .buttonStyle(Press())
         .sensoryFeedback(.success, trigger: waters.count)
         .accessibilityHint("Adds \(Int(ml)) millilitres")
     }
 
-    private func tile(_ title: String, _ value: String?, icon: String, tint: Color, fraction: Double?, caption: String?) -> some View {
-        tileBody(title, value ?? "None", icon: icon, tint: tint, fraction: fraction, caption: value == nil ? "Not recorded" : caption)
-    }
-
-    /// Compact metric tile: icon and name, one big number, a caption, a goal bar underneath.
-    private func tileBody(_ title: String, _ value: String, icon: String, tint: Color, fraction: Double?, caption: String?, plus: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label(title, systemImage: icon).font(.body).labelStyle(TintedIcon(tint: tint))
-                Spacer()
-                if plus { Image(systemName: "plus.circle").font(.title3).foregroundStyle(tint) }
-            }
-            Text(value).font(.system(size: 36, weight: .bold)).tracking(-0.8).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-            Text(caption ?? " ").font(.subheadline).foregroundStyle(Theme.secondaryText).lineLimit(1)
-            ProgressBar(fraction: fraction ?? 0, tint: tint).frame(height: 6).opacity(fraction == nil ? 0.3 : 1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(16)
-        .glass(24)
-        .accessibilityElement(children: .combine)
-    }
-
     /// Opens the sleep history when there is a night, otherwise the manual log so a missing Health import never blocks you.
     @ViewBuilder private func sleepTile(_ s: DaySummary) -> some View {
-        let body = tile("Sleep", s.sleepHours.map { String(format: "%.1f h", $0) }, icon: "moon", tint: Theme.sleep,
-                        fraction: s.sleepHours.map { $0 / s.sleepTargetHours },
-                        caption: s.sleepHours == nil ? "Tap to log" : "of \(String(format: "%g", s.sleepTargetHours)) h")
+        let body = Tile(title: "Sleep", icon: "moon", tint: Theme.sleep, value: s.sleepHours.map { String(format: "%.1f h", $0) } ?? "None",
+                        caption: s.sleepHours == nil ? "Tap to log" : "of \(String(format: "%g", s.sleepTargetHours)) h",
+                        fraction: s.sleepHours.map { $0 / s.sleepTargetHours })
         if s.sleepHours == nil {
             Button { sheet = .sleepLog } label: { body }.buttonStyle(Press())
         } else {
@@ -242,15 +219,12 @@ struct TodayView: View {
         }
     }
 
-    /// One place to log anything you eat or drink. Floats over the content on a translucent layer.
+    /// One place to log anything you eat or drink. A 243 wide lime pill floating above the tab bar, as in the design.
     private var logBar: some View {
-        Button { sheet = .food } label: {
-            Label("Log food or drink", systemImage: "plus").font(.headline).frame(maxWidth: .infinity, minHeight: 54)
-        }
-        .buttonStyle(Press())
-        .background(Theme.accent, in: Capsule()).foregroundStyle(.black)
-        .padding(.horizontal, 20).padding(.vertical, 12)
-        .background(Theme.background)
+        PillButton(title: "Log food or drink", icon: "plus") { sheet = .food }
+            .frame(width: 243)
+            .padding(.top, 10).padding(.bottom, 20)
+            .frame(maxWidth: .infinity)
     }
 }
 

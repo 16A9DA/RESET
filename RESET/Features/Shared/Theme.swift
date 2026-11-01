@@ -1,26 +1,75 @@
 import SwiftUI
 
+/// Design tokens read from the Figma file "RE:SET AI" (Today dark and light frames). The file defines no Figma
+/// variables, so every value here is the hardcoded value in the frames.
 enum Theme {
     private static func dynamic(dark: UIColor, light: UIColor) -> Color {
         Color(UIColor { $0.userInterfaceStyle == .dark ? dark : light })
     }
-    static let background = dynamic(dark: UIColor(red: 0.047, green: 0.051, blue: 0.059, alpha: 1), light: UIColor(red: 0.953, green: 0.949, blue: 0.937, alpha: 1))
-    static let card = dynamic(dark: UIColor(red: 0.094, green: 0.102, blue: 0.118, alpha: 1), light: .white)
-    /// Slightly lifted surface for things that sit on a card, such as chart tracks.
-    static let raised = dynamic(dark: UIColor(red: 0.141, green: 0.153, blue: 0.176, alpha: 1), light: UIColor(red: 0.925, green: 0.922, blue: 0.91, alpha: 1))
+    private static func hex(_ v: UInt32, _ a: CGFloat = 1) -> UIColor {
+        UIColor(red: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: a)
+    }
+
+    // Surfaces
+    static let background = dynamic(dark: hex(0x0C0D0F), light: hex(0xF3F2EF))
+    static let card = dynamic(dark: hex(0x181A1E), light: .white)
+    /// Track behind progress bars, and raised chips and secondary buttons.
+    static let raised = dynamic(dark: hex(0x24272D), light: hex(0xE8E7E3))
     static let hairline = dynamic(dark: UIColor(white: 1, alpha: 0.07), light: UIColor(white: 0, alpha: 0.07))
-    static let accent = Color(red: 0.839, green: 0.996, blue: 0.369)
+    // Text
+    static let text = dynamic(dark: .white, light: hex(0x0C0D0F))
+    static let secondaryText = dynamic(dark: UIColor(white: 1, alpha: 0.62), light: hex(0x0C0D0F, 0.62))
+    // Accent and metric colors
+    static let accent = Color(uiColor: hex(0xCCFF33))
+    /// Text and icons on top of the accent color.
+    static let onAccent = Color(uiColor: hex(0x0C0D0F))
     static let food = Color(red: 1.00, green: 0.69, blue: 0.28)
-    static let water = Color(red: 0.47, green: 0.77, blue: 0.98)
+    static let water = Color(uiColor: hex(0x5CC7FF))
     static let steps = accent
-    static let sleep = Color(red: 0.63, green: 0.57, blue: 0.97)
-    static let protein = Color(red: 0.93, green: 0.50, blue: 0.58)
-    static let carbs = Color(red: 0.94, green: 0.84, blue: 0.45)
-    static let fat = Color(red: 0.53, green: 0.85, blue: 0.80)
-    static let secondaryText = Color.primary.opacity(0.62)
-    static let good = Color(red: 0.35, green: 0.85, blue: 0.55)
+    static let sleep = Color(uiColor: hex(0xA391FF))
+    static let protein = Color(uiColor: hex(0xFF7894))
+    static let carbs = Color(uiColor: hex(0xF5D661))
+    static let fat = Color(uiColor: hex(0x6BDBCC))
+    static let good = Color(uiColor: hex(0x59D98C))
     static let warn = Color(red: 1.0, green: 0.72, blue: 0.25)
     static let low = Color(red: 1.0, green: 0.45, blue: 0.40)
+
+    // Shape and spacing
+    static let cardRadius: CGFloat = 22
+    static let cardPadding: CGFloat = 16
+    static let tilePadding: CGFloat = 14
+    static let screenInset: CGFloat = 20
+    static let gap: CGFloat = 10
+    static let barHeight: CGFloat = 6
+    static let buttonHeight: CGFloat = 48
+
+    /// Inter for text and Nunito Sans Bold for big numbers, as in the Figma file. Both are bundled in RESET/Fonts
+    /// (SIL Open Font License) and registered through UIAppFonts. Sizes are fixed points like the frames, scaled
+    /// with Dynamic Type through `relativeTo`.
+    enum Face {
+        case regular, semibold, bold
+        var name: String { switch self { case .regular: "Inter-Regular"; case .semibold: "Inter-SemiBold"; case .bold: "Inter-Bold" } }
+    }
+    static func text(_ size: CGFloat, _ face: Face = .regular, relativeTo style: Font.TextStyle = .body) -> Font {
+        .custom(face.name, size: size, relativeTo: style)
+    }
+    static func number(_ size: CGFloat, relativeTo style: Font.TextStyle = .title) -> Font {
+        .custom("NunitoSans-Bold", size: size, relativeTo: style)
+    }
+
+    /// Type scale in points, from the frames.
+    enum Size {
+        static let headline: CGFloat = 23
+        static let bigNumber: CGFloat = 42
+        static let tileNumber: CGFloat = 29
+        static let workNumber: CGFloat = 27
+        static let cardTitle: CGFloat = 15
+        static let body: CGFloat = 14
+        static let tileTitle: CGFloat = 13
+        static let caption: CGFloat = 12
+        static let footnote: CGFloat = 11
+        static let tab: CGFloat = 10
+    }
 }
 
 /// Flat app background. Kept under its old name so every screen picks it up.
@@ -34,24 +83,25 @@ extension View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         return self.background(Theme.card, in: shape)
             .overlay(shape.strokeBorder(Theme.hairline))
-            .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
     }
 }
 
 struct Card<Content: View>: View {
     var title: String?
+    var spacing: CGFloat = 12
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: spacing) {
             if let title {
-                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.secondaryText)
+                Text(title).font(Theme.text(Theme.Size.body, .semibold)).foregroundStyle(Theme.secondaryText)
             }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .glass(22)
+        .padding(Theme.cardPadding)
+        .glass(Theme.cardRadius)
     }
 }
 
@@ -146,11 +196,11 @@ struct ProgressBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.primary.opacity(0.1))
+                Capsule().fill(Theme.raised)
                 Capsule().fill(tint).frame(width: geo.size.width * min(1, max(0, fraction)))
             }
         }
-        .frame(height: 8)
+        .frame(height: Theme.barHeight)
         .animation(.easeOut(duration: 0.4), value: fraction)
     }
 }
@@ -246,31 +296,31 @@ struct FoodSummary: View {
     var fat: (eaten: Double, goal: Double)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
-                Label("Food", systemImage: "fork.knife").font(.headline).labelStyle(TintedIcon(tint: Theme.food))
+        VStack(alignment: .leading, spacing: Theme.gap) {
+            HStack(alignment: .top) {
+                CardHeading(icon: "utensils", title: "Food", tint: Theme.food)
                 Spacer()
                 if counting, let t = target {
                     Text("\(Int(kcal.rounded()).formatted()) of \(Int(t.rounded()).formatted()) kcal")
-                        .font(.footnote).foregroundStyle(Theme.secondaryText).monospacedDigit()
+                        .font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText).monospacedDigit()
                 }
             }
             if counting {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     if let t = target {
                         let left = t - kcal
-                        Text("\(Int(abs(left).rounded()))").font(.system(size: 56, weight: .bold)).tracking(-1.5).monospacedDigit()
-                            .foregroundStyle(left >= 0 ? Color.primary : Theme.warn)
-                        Text(left >= 0 ? "kcal left" : "kcal over").font(.body).foregroundStyle(Theme.secondaryText)
+                        Text("\(Int(abs(left).rounded()))").font(Theme.number(Theme.Size.bigNumber)).tracking(-0.8)
+                            .foregroundStyle(left >= 0 ? Theme.text : Theme.warn)
+                        Text(left >= 0 ? "kcal left" : "kcal over").font(Theme.text(Theme.Size.body)).foregroundStyle(Theme.secondaryText)
                     } else {
-                        Text("\(Int(kcal.rounded()))").font(.system(size: 44, weight: .bold, design: .rounded)).tracking(-1).monospacedDigit()
-                        Text("kcal").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                        Text("\(Int(kcal.rounded()))").font(Theme.number(Theme.Size.bigNumber)).tracking(-0.8).foregroundStyle(Theme.text)
+                        Text("kcal").font(Theme.text(Theme.Size.body)).foregroundStyle(Theme.secondaryText)
                     }
                 }
             } else {
-                Text("\(Int(protein.eaten.rounded())) g protein").font(.system(size: 32, weight: .bold, design: .rounded)).monospacedDigit()
+                Text("\(Int(protein.eaten.rounded())) g protein").font(Theme.number(32)).foregroundStyle(Theme.text)
             }
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
                 macro("Protein", protein, Theme.protein)
                 macro("Carbs", carbs, Theme.carbs)
                 macro("Fat", fat, Theme.fat)
@@ -280,11 +330,11 @@ struct FoodSummary: View {
     }
 
     private func macro(_ name: String, _ m: (eaten: Double, goal: Double), _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(name).font(.subheadline).foregroundStyle(Theme.secondaryText)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(name).font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText)
             Text(m.goal > 0 ? "\(Int(m.eaten.rounded())) / \(Int(m.goal.rounded())) g" : "\(Int(m.eaten.rounded())) g")
-                .font(.subheadline.weight(.semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
-            ProgressBar(fraction: m.goal > 0 ? m.eaten / m.goal : 0, tint: tint).frame(height: 5).opacity(m.goal > 0 ? 1 : 0.3)
+                .font(Theme.text(Theme.Size.caption, .semibold)).foregroundStyle(Theme.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+            ProgressBar(fraction: m.goal > 0 ? m.eaten / m.goal : 0, tint: tint).opacity(m.goal > 0 ? 1 : 0.3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -6,6 +6,8 @@ struct RootView: View {
     @Query private var profiles: [UserProfile]
     @Environment(AppRouter.self) private var router
 
+    init() { TabBarStyle.apply() }
+
     var body: some View {
         Group {
             if let profile = profiles.first {
@@ -25,11 +27,11 @@ struct RootView: View {
     private var tabs: some View {
         @Bindable var router = router
         return TabView(selection: $router.tab) {
-            TodayView().tag(AppTab.today).tabItem { Label("Today", systemImage: "house") }
-            ActivityView().tag(AppTab.activity).tabItem { Label("Activity", systemImage: "figure.walk") }
-            NutritionView().tag(AppTab.nutrition).tabItem { Label("Nutrition", systemImage: "fork.knife") }
-            InsightsView().tag(AppTab.insights).tabItem { Label("Insights", systemImage: "chart.bar") }
-            CoachView().tag(AppTab.coach).tabItem { Label("Coach", systemImage: "bubble.left") }
+            TodayView().tag(AppTab.today).tabItem { Label("Today", image: "ic-house") }
+            ActivityView().tag(AppTab.activity).tabItem { Label("Activity", image: "ic-footprints") }
+            NutritionView().tag(AppTab.nutrition).tabItem { Label("Nutrition", image: "ic-utensils") }
+            InsightsView().tag(AppTab.insights).tabItem { Label("Insights", image: "ic-chart") }
+            CoachView().tag(AppTab.coach).tabItem { Label("Coach", image: "ic-message-circle") }
         }
         .toolbarBackground(Theme.background, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)

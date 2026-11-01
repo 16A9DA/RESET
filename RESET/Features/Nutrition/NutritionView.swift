@@ -155,7 +155,7 @@ struct NutritionView: View {
         let t = totals.total
         return FoodSummary(kcal: t.kcal, target: plan?.targetKcal, counting: profile?.calorieCountingEnabled != false,
                            protein: (t.proteinG, plan?.proteinG ?? 0), carbs: (t.carbsG, plan?.carbsG ?? 0), fat: (t.fatG, plan?.fatG ?? 0))
-            .padding(18).glass(24)
+            .padding(Theme.cardPadding).frame(maxWidth: .infinity, alignment: .leading).glass(Theme.cardRadius)
     }
 }
 
