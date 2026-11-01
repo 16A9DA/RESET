@@ -119,7 +119,7 @@ struct CoachView: View {
 
     private var activeID: UUID? { UUID(uuidString: activeRaw).flatMap { id in sessions.contains { $0.id == id } ? id : nil } }
     private var messages: [ChatMessage] { allMessages.filter { $0.sessionID == activeID && activeID != nil } }
-    private var title: String { sessions.first { $0.id == activeID }?.title ?? "New chat" }
+    private var title: String { sessions.first { $0.id == activeID }?.title ?? "Coach" }
 
     var body: some View {
         NavigationStack {
@@ -128,6 +128,11 @@ struct CoachView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 8) {
                             if messages.isEmpty { intro }
+                            if let first = messages.first {
+                                Text(first.at.formatted(.dateTime.weekday(.abbreviated).hour().minute()).uppercased())
+                                    .font(.system(size: 10, weight: .medium)).tracking(0.5).foregroundStyle(Theme.secondaryText)
+                                    .frame(maxWidth: .infinity).padding(.bottom, 4)
+                            }
                             ForEach(messages) { m in bubble(m).id(m.id) }
                             ForEach(model.pending) { p in pendingCard(p) }
                             ForEach(model.drafts) { d in draftCard(d) }
@@ -142,17 +147,9 @@ struct CoachView: View {
                 inputBar
             }
             .background(GlassBackdrop())
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .top, spacing: 0) { topBar }
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { inputFocused = false; router.tab = .today } label: { Label("Back", systemImage: "chevron.left") }
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { showChats = true } label: { Image(systemName: "text.justify.left") }.accessibilityLabel("All chats")
-                    Button { newChat() } label: { Image(systemName: "square.and.pencil") }
-                        .accessibilityLabel("New chat").disabled(messages.isEmpty)
-                }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Done") { inputFocused = false }
@@ -162,6 +159,23 @@ struct CoachView: View {
             .sheet(item: $editing) { d in AddFoodView(initialItems: d.items, initialText: d.text) }
             .sheet(isPresented: $showChats) { chatList }
         }
+    }
+
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            Button { inputFocused = false; router.tab = .today } label: { Image(systemName: "arrow.left").font(.body.weight(.semibold)) }
+                .accessibilityLabel("Back")
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(.headline, design: .rounded, weight: .bold)).lineLimit(1)
+                Text("One next step, not a to-do list").font(.caption).foregroundStyle(Theme.secondaryText)
+            }
+            Spacer()
+            Button { showChats = true } label: { Image(systemName: "list.bullet") }.accessibilityLabel("All chats")
+            Button { newChat() } label: { Image(systemName: "square.and.pencil") }
+                .accessibilityLabel("New chat").disabled(messages.isEmpty)
+        }
+        .foregroundStyle(.primary).padding(.horizontal).padding(.vertical, 10)
+        .background(Theme.background)
     }
 
     // MARK: Chats
@@ -199,50 +213,80 @@ struct CoachView: View {
     }
 
     private var chatList: some View {
-        NavigationStack {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Chats").font(.system(.title2, design: .rounded, weight: .bold))
+                Spacer()
+                Button { showChats = false } label: { Image(systemName: "xmark").font(.body.weight(.semibold)).padding(8) }
+                    .foregroundStyle(.primary).accessibilityLabel("Close")
+            }
+            .padding(.horizontal, 20).padding(.top, 20)
+            Button { newChat(); showChats = false } label: {
+                Label("New chat", systemImage: "plus").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(Press()).background(Theme.raised, in: Capsule()).foregroundStyle(.primary).padding(.horizontal, 20)
             List {
                 ForEach(sessions) { chat in
                     Button { open(chat) } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(chat.title).font(.body.weight(chat.id == activeID ? .semibold : .regular)).lineLimit(1)
-                            Text(chat.updatedAt.formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(Theme.secondaryText)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(chat.title).font(.body.weight(chat.id == activeID ? .semibold : .regular)).lineLimit(1)
+                                Text(chat.updatedAt.formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(Theme.secondaryText)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Theme.secondaryText.opacity(0.6))
                         }
                     }
-                    .foregroundStyle(.primary)
-                    .swipeActions { Button("Delete", role: .destructive) { delete(chat) } }
+                    .foregroundStyle(.primary).listRowBackground(Color.clear).listRowSeparatorTint(Theme.hairline)
+                    .swipeActions { Button { delete(chat) } label: { Image(systemName: "trash") }.tint(Theme.low) }
                 }
             }
+            .listStyle(.plain).scrollContentBackground(.hidden)
             .overlay { if sessions.isEmpty { Text("No chats yet").foregroundStyle(Theme.secondaryText) } }
-            .navigationTitle("Chats")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showChats = false } } }
         }
-        .presentationDetents([.medium, .large])
+        .background(GlassBackdrop())
+        .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
     }
 
     private var profile: UserProfile? { profiles.first }
 
     private var intro: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Ask about your day").font(.system(.title2, design: .rounded, weight: .bold)).tracking(-0.4)
-            Text("You are talking to an AI, not a person or a doctor.").font(.footnote).foregroundStyle(Theme.secondaryText)
-            ForEach(suggestions, id: \.self) { s in
-                Button(s) { send(s) }.buttonStyle(.bordered).font(.footnote)
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: "sparkles").font(.title3).foregroundStyle(Theme.accent)
+                .frame(width: 48, height: 48).background(Theme.card, in: Circle()).overlay(Circle().strokeBorder(Theme.hairline))
+                .padding(.top, 40)
+            Text("Ask about your day").font(.system(.title, design: .rounded, weight: .bold)).tracking(-0.5)
+            Text("You are talking to an AI, not a person or a doctor.").font(.subheadline).foregroundStyle(Theme.secondaryText)
+            VStack(spacing: 8) {
+                ForEach(suggestions, id: \.self) { s in
+                    Button { send(s) } label: {
+                        HStack {
+                            Text(s).font(.subheadline)
+                            Spacer()
+                            Image(systemName: "arrow.up.left").font(.caption).foregroundStyle(Theme.secondaryText)
+                        }
+                        .padding(.horizontal, 16).frame(minHeight: 46).background(Theme.card, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.hairline))
+                    }.buttonStyle(Press())
+                }
             }
+            .padding(.top, 8)
         }
     }
 
     private func bubble(_ m: ChatMessage) -> some View {
-        HStack {
-            if m.role == "user" { Spacer(minLength: 40) }
-            Text(m.text)
-                .font(.body).lineSpacing(2)
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(m.role == "user" ? Theme.accent : Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay { if m.role != "user" { RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.hairline) } }
-                .foregroundStyle(m.role == "user" ? Color.black : Color.primary)
-                .textSelection(.enabled)
-            if m.role != "user" { Spacer(minLength: 40) }
+        let mine = m.role == "user"
+        return HStack {
+            if mine { Spacer(minLength: 56) }
+            VStack(alignment: .leading, spacing: 6) {
+                if !mine { Text("RE:SET AI").font(.system(size: 10, weight: .semibold)).tracking(0.5).foregroundStyle(Theme.secondaryText) }
+                Text(m.text).font(.body).lineSpacing(3).textSelection(.enabled)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background(mine ? Theme.accent : Theme.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay { if !mine { RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.hairline) } }
+            .foregroundStyle(mine ? Color.black : Color.primary)
+            if !mine { Spacer(minLength: 56) }
         }
     }
 
@@ -280,18 +324,25 @@ struct CoachView: View {
     }
 
     private var inputBar: some View {
-        HStack(alignment: .bottom) {
-            TextField("Message the AI coach", text: $input, axis: .vertical).lineLimit(1...4)
-                .padding(10).glass(18)
-                .focused($inputFocused)
-                .submitLabel(.send).onSubmit { send(input) }
-            Button { send(input) } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 34)) }
+        VStack(spacing: 6) {
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField("Ask anything about your day", text: $input, axis: .vertical).lineLimit(1...4)
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .background(Theme.card, in: Capsule()).overlay(Capsule().strokeBorder(Theme.hairline))
+                    .focused($inputFocused)
+                    .submitLabel(.send).onSubmit { send(input) }
+                Button { send(input) } label: {
+                    Image(systemName: "arrow.up").font(.headline).foregroundStyle(.black).frame(width: 48, height: 48)
+                        .background(Theme.accent, in: Circle())
+                }
                 .buttonStyle(Press())
-                .tint(Theme.accent)
+                .opacity(input.trimmingCharacters(in: .whitespaces).isEmpty || model.busy ? 0.4 : 1)
                 .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty || model.busy)
                 .accessibilityLabel("Send")
+            }
+            Text("AI guidance, not medical advice").font(.caption2).foregroundStyle(Theme.secondaryText)
         }
-        .padding(10).background(.ultraThinMaterial)
+        .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6).background(Theme.background)
     }
 
     private func send(_ text: String) {
