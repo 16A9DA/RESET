@@ -302,8 +302,8 @@ struct FoodSummary: View {
             HStack(alignment: .top) {
                 CardHeading(icon: "utensils", title: "Food", tint: Theme.food)
                 Spacer()
-                if counting, let t = target {
-                    Text("\(Int(kcal.rounded()).formatted()) of \(Int(t.rounded()).formatted()) kcal")
+                if counting, target != nil {
+                    Text("\(Int(kcal.rounded()).formatted()) kcal eaten")
                         .font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText).monospacedDigit()
                 }
             }
