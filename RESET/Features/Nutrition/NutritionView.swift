@@ -6,7 +6,6 @@ struct NutritionView: View {
     @Environment(\.modelContext) private var context
     @Query private var profiles: [UserProfile]
     @Query(sort: \MealRecord.at, order: .reverse) private var meals: [MealRecord]
-    @State private var adding = false
     @State private var canEat = false
     @Query private var caffeines: [CaffeineRecord]
     @State private var editing: MealRecord?
@@ -15,31 +14,18 @@ struct NutritionView: View {
     private var today: [MealRecord] { meals.filter { Calendar.current.isDateInToday($0.at) } }
     private var totals: DayNutrition { NutritionTotals.day(meals.map { ($0.at, $0.items) }, on: .now) }
 
-    @State private var chooser = false
-    @State private var pendingMethod: FoodMethod?
-    @State private var addMethod: FoodMethod?
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    PageHeader(title: "Nutrition", subtitle: Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))) {
-                        Button { chooser = true } label: { Icon("plus", size: 22) }.foregroundStyle(Theme.text).accessibilityLabel("Add food")
-                    }
+                    PageHeader(title: "Nutrition", subtitle: Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide))) { EmptyView() }
                     eatenCard
-                    if today.isEmpty {
-                        EmptyNote(systemImage: "fork.knife", title: "Nothing logged yet",
-                                  message: "Not logging does not mean you skipped.", actionTitle: "Add food") { chooser = true }
-                    } else {
-                        ForEach(MealType.allCases, id: \.self) { type in mealGroup(type) }
+                    ForEach(MealType.allCases, id: \.self) { type in mealGroup(type) }
+                    if !today.isEmpty {
+                        Text("Estimates are enough. You can always adjust them.").font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    Text("Estimates are enough. You can always adjust them.").font(Theme.text(Theme.Size.footnote)).foregroundStyle(Theme.secondaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     ListGroup {
-                        NavigationLink { ScrollView { WaterCard().padding() }.background(GlassBackdrop()).navigationTitle("Water") } label: {
-                            GroupRow(title: "Water", icon: "drop", tint: Theme.water)
-                        }.buttonStyle(Press())
-                        GroupDivider()
                         NavigationLink { ScrollView { CaffeineCard().padding() }.background(GlassBackdrop()).navigationTitle("Caffeine") } label: {
                             GroupRow(title: "Caffeine", icon: "cup.and.saucer", value: caffeineMg > 0 ? "\(Int(caffeineMg.rounded())) mg" : nil, tint: Theme.carbs)
                         }.buttonStyle(Press())
@@ -59,17 +45,6 @@ struct NutritionView: View {
             }
             .background(GlassBackdrop())
             .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .bottom) {
-                PillButton(title: "Add food", icon: "plus") { chooser = true }
-                    .padding(.horizontal, Theme.screenInset).padding(.top, 10).padding(.bottom, 20)
-            }
-            .sheet(isPresented: $chooser, onDismiss: { if let m = pendingMethod { pendingMethod = nil; addMethod = m } }) {
-                AddFoodChooser { pendingMethod = $0; chooser = false }
-                    .presentationDetents([.height(350)]).presentationDragIndicator(.hidden)
-                    .presentationBackground(Theme.card).presentationCornerRadius(28)
-            }
-            .sheet(item: $addMethod) { AddFoodView(startWith: $0) }
-            .sheet(isPresented: $adding) { AddFoodView() }
             .sheet(isPresented: $canEat) { CanIEatView() }
             .sheet(item: $editing) { MealEditor(meal: $0) }
         }
@@ -221,46 +196,5 @@ struct MealEditor: View {
         guard g > 0, item.grams > 0 else { item.grams = max(0, g); return }
         item.nutrition = item.nutrition.scaled(g / item.grams)
         item.grams = g
-    }
-}
-
-/// Bottom sheet that asks how to add food, so the next screen opens straight on that method.
-struct AddFoodChooser: View {
-    @Environment(\.dismiss) private var dismiss
-    var pick: (FoodMethod) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Capsule().fill(Theme.secondaryText).frame(width: 36, height: 5).frame(maxWidth: .infinity)
-            HStack {
-                Text("Add food").font(Theme.text(Theme.Size.headline, .bold, relativeTo: .title2)).foregroundStyle(Theme.text)
-                Spacer()
-                Button { dismiss() } label: { Icon("x", size: 22) }.foregroundStyle(Theme.text).accessibilityLabel("Close")
-            }
-            Text("Choose whatever takes the least effort.").font(Theme.text(Theme.Size.body)).foregroundStyle(Theme.secondaryText)
-            VStack(spacing: 19) {
-                row("Describe it", "A few words is enough", "text-cursor-input", .describe)
-                row("Photograph it", "Let AI estimate your meal", "camera", .photo)
-                row("Scan a barcode", "Quickly add packaged food", "scan-barcode", .barcode)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.screenInset).padding(.top, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func row(_ title: String, _ sub: String, _ icon: String, _ m: FoodMethod) -> some View {
-        Button { pick(m) } label: {
-            HStack(alignment: .top, spacing: 14) {
-                Icon(icon, size: 22).foregroundStyle(Theme.accent)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(Theme.text(Theme.Size.cardTitle, .semibold)).foregroundStyle(Theme.text)
-                    Text(sub).font(Theme.text(Theme.Size.caption)).foregroundStyle(Theme.secondaryText)
-                }
-                Spacer()
-                Icon("chevron-right", size: 17).foregroundStyle(Theme.secondaryText)
-            }
-            .contentShape(Rectangle())
-        }.buttonStyle(Press())
     }
 }
